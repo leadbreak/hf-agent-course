@@ -6,7 +6,7 @@
 대형 언어 모델(LLM)이 자율적인 에이전트로 진화하는 과정을 다루는 인터랙티브 웹 다큐먼트 시리즈입니다.
 
 ## 📺 Live Demo (강의 보기)
-> **[전체 강의 시리즈 웹사이트 바로가기](https://yourusername.github.io/hf-agent-course/)**
+> **[전체 강의 시리즈 웹사이트 바로가기](https://huggingface.co/learn/agents-course/unit0/introduction)**
 
 ## Curriculum
 - [x] **Lecture 1:** LLM에서 Agent로, 패러다임의 전환 (`index.html`)
