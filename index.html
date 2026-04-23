@@ -3,187 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hugging Face Agent Course: Lecture 1</title>
-    <style>
-        /* === Base Variables & Reset === */
-        :root {
-            --hf-yellow: #FFD21E;
-            --hf-yellow-dim: rgba(255, 210, 30, 0.2);
-            --bg-main: #0b0f19;
-            --bg-card: #131a2a;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-blue: #38bdf8;
-            --accent-red: #fb7185;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { background-color: var(--bg-main); color: var(--text-main); line-height: 1.7; overflow-x: hidden; }
-
-        /* === Typography & Layout === */
-        h1 { font-size: 4rem; line-height: 1.1; margin-bottom: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
-        h2 { font-size: 2.5rem; margin-bottom: 1rem; color: var(--hf-yellow); }
-        h3 { font-size: 1.5rem; margin-bottom: 1rem; }
-        p { font-size: 1.125rem; color: var(--text-muted); margin-bottom: 1.5rem; }
-        .container { max-width: 1000px; margin: 0 auto; padding: 0 2rem; }
-        .highlight { color: var(--hf-yellow); }
-
-        /* === Animation Classes (Intersection Observer) === */
-        .fade-up { opacity: 0; transform: translateY(40px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
-        .fade-up.visible { opacity: 1; transform: translateY(0); }
-        
-        /* === Hero Section === */
-        .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; position: relative; }
-        .hero::before { content: ''; position: absolute; top: -20%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, var(--hf-yellow-dim) 0%, transparent 70%); z-index: -1; }
-        .badge { display: inline-block; background: var(--hf-yellow); color: #000; padding: 0.5rem 1.2rem; border-radius: 30px; font-weight: 700; font-size: 0.9rem; margin-bottom: 2rem; width: max-content; }
-        
-        /* === Story Sections === */
-        .story-section { padding: 8rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
-        .card { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 2.5rem; position: relative; overflow: hidden; }
-
-        /* === Interactive SVG Animation (ReAct Loop) === */
-        .react-diagram { width: 100%; height: 300px; }
-        .path-line { fill: none; stroke: var(--text-muted); stroke-width: 3; stroke-dasharray: 1000; stroke-dashoffset: 1000; transition: stroke-dashoffset 2s ease-in-out; }
-        .visible .path-line { stroke-dashoffset: 0; stroke: var(--hf-yellow); }
-        .node-circle { fill: var(--bg-card); stroke: var(--accent-blue); stroke-width: 4; transform-origin: center; transition: all 0.5s ease; opacity: 0; }
-        .visible .node-circle { opacity: 1; }
-        .node-text { fill: var(--text-main); font-size: 18px; font-weight: bold; text-anchor: middle; opacity: 0; }
-        .visible .node-text { opacity: 1; transition: opacity 0.5s ease 1s; }
-        .node-desc { fill: var(--text-muted); font-size: 14px; text-anchor: middle; opacity: 0; }
-        .visible .node-desc { opacity: 1; transition: opacity 0.5s ease 1.5s; }
-
-        /* === CSS Bar Chart (JSON vs Code) === */
-        .chart-container { margin-top: 2rem; }
-        .chart-row { margin-bottom: 1.5rem; }
-        .chart-label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 600; }
-        .bar-bg { width: 100%; height: 12px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; }
-        .bar-fill { height: 100%; width: 0%; border-radius: 6px; transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1); }
-        .fill-json { background: var(--accent-red); }
-        .fill-code { background: var(--accent-blue); }
-        .visible .w-json-1 { width: 30%; } .visible .w-code-1 { width: 95%; } /* 복잡도 */
-        .visible .w-json-2 { width: 20%; } .visible .w-code-2 { width: 90%; } /* 에러 복구력 */
-        .visible .w-json-3 { width: 40%; } .visible .w-code-3 { width: 100%; } /* 유연성 */
-
-        /* === Next Lecture Bridge === */
-        .bridge { background: linear-gradient(135deg, var(--bg-card) 0%, #1a1a2e 100%); padding: 4rem; text-align: center; border-radius: 24px; margin-top: 4rem; border: 1px solid var(--hf-yellow-dim); }
-        .btn { display: inline-block; background: var(--hf-yellow); color: #000; font-weight: bold; padding: 1rem 2.5rem; border-radius: 30px; text-decoration: none; margin-top: 2rem; transition: transform 0.2s; }
-        .btn:hover { transform: translateY(-3px); }
-    </style>
+    <title>Hugging Face Agent Course</title>
+    <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
-
-    <div class="container">
-        <header class="hero fade-up">
-            <div class="badge">Hugging Face Agent Course: Lecture 1</div>
-            <h1>LLM에서 <span class="highlight">Agent</span>로,<br>패러다임의 전환</h1>
-            <p>단순한 텍스트 생성기였던 AI가 스스로 생각하고, 도구를 쥐고, 세계와 상호작용하기 시작했습니다. 그 근간이 되는 아키텍처와 smolagents의 핵심을 파헤칩니다.</p>
+    <div class="container" style="padding-top: 5rem;">
+        <header class="hero text-center reveal">
+            <span class="badge">Hugging Face Official</span>
+            <h1>자율형 AI 에이전트 구축 마스터 클래스</h1>
+            <p class="lead" style="margin: 0 auto;">LLM의 추론 능력과 Python 코드 실행 환경을 결합하여, 현실 세계의 복잡한 문제를 스스로 해결하는 시스템 아키텍처를 설계합니다.</p>
         </header>
 
-        <section class="story-section">
-            <div class="grid-2 fade-up">
-                <div>
-                    <h2>에이전트의 해부학</h2>
-                    <p>전통적인 LLM은 훌륭한 <strong>'두뇌(Brain)'</strong>입니다. 하지만 팔다리가 없어 외부 세계에 영향을 미치지 못했죠.</p>
-                    <p>에이전트는 이 두뇌에 <strong>'신체(Tools)'</strong>를 연결한 시스템입니다. 웹을 검색하고, 코드를 실행하고, API를 호출하여 현실의 문제를 직접 해결합니다.</p>
+        <div class="story-section reveal" style="margin-top: 3rem;">
+            <a href="./lectures/lecture-01.html" class="course-card">
+                <div class="card-content">
+                    <h2 style="color: var(--hf-yellow); margin-bottom: 0.5rem; font-size: 1.5rem;">Lecture 1. LLM에서 Agent로</h2>
+                    <p style="color: var(--text-secondary); margin: 0;">패러다임의 전환: Brain & Body 구조와 ReAct 작동 원리, Code Agent의 압도적 효율성</p>
                 </div>
-                <div class="card" style="text-align: center;">
-                    <h3 style="color: var(--accent-blue);">LLM (두뇌)</h3>
-                    <p style="font-size: 0.9rem;">추론, 계획 수립, 텍스트 이해</p>
-                    <div style="font-size: 2rem; margin: 1rem 0; color: var(--hf-yellow);">+</div>
-                    <h3 style="color: var(--accent-red);">Tools (신체)</h3>
-                    <p style="font-size: 0.9rem;">웹 검색, Python 인터프리터, 계산기</p>
-                    <hr style="border-color: rgba(255,255,255,0.1); margin: 1.5rem 0;">
-                    <h3 style="color: var(--text-main);">Autonomous Agent</h3>
+                <div class="card-action">학습하기 →</div>
+            </a>
+            
+            <div class="course-card disabled" style="margin-top: 1.5rem; opacity: 0.5;">
+                <div class="card-content">
+                    <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Lecture 2. smolagents 실전 구축</h2>
+                    <p style="margin: 0;">(업데이트 예정) 초경량 프레임워크를 활용한 실전 구축기</p>
                 </div>
             </div>
-        </section>
-
-        <section class="story-section">
-            <div class="fade-up">
-                <h2>생각하고 행동하라: ReAct 패턴</h2>
-                <p>에이전트는 목표를 달성하기 위해 <code>Thought(사고) → Action(행동) → Observation(관찰)</code>의 순환 고리를 끊임없이 반복합니다. 아래 차트가 화면에 들어올 때 작동 흐름을 확인하세요.</p>
-                
-                <div class="card" style="margin-top: 3rem;">
-                    <svg class="react-diagram" viewBox="0 0 800 300">
-                        <path class="path-line" d="M 200,100 Q 400,20 600,100" marker-end="url(#arrow)" />
-                        <path class="path-line" d="M 600,180 Q 400,260 200,180" marker-end="url(#arrow)" />
-                        
-                        <circle class="node-circle" cx="160" cy="140" r="60" style="transition-delay: 0.2s;" />
-                        <text class="node-text" x="160" y="135">Thought</text>
-                        <text class="node-desc" x="160" y="155">계획 수립</text>
-
-                        <circle class="node-circle" cx="400" cy="140" r="60" style="transition-delay: 0.8s; stroke: var(--hf-yellow);" />
-                        <text class="node-text" x="400" y="135">Action</text>
-                        <text class="node-desc" x="400" y="155">도구 실행</text>
-
-                        <circle class="node-circle" cx="640" cy="140" r="60" style="transition-delay: 1.4s; stroke: var(--accent-red);" />
-                        <text class="node-text" x="640" y="135">Observation</text>
-                        <text class="node-desc" x="640" y="155">결과 관찰 및 피드백</text>
-                    </svg>
-                </div>
-            </div>
-        </section>
-
-        <section class="story-section">
-            <div class="grid-2 fade-up">
-                <div>
-                    <h2>왜 <span class="highlight">Code Agent</span> 인가?</h2>
-                    <p>도구를 호출할 때 LLM이 <code>JSON</code> 객체를 내뱉게 하는 방식은 과거의 유물입니다.</p>
-                    <p>이제는 LLM이 직접 <strong>Python 코드</strong>를 작성하여 도구를 제어합니다. 루프(For/While)와 조건문(If)을 사용할 수 있어 복잡한 논리 처리에 압도적인 성능을 냅니다.</p>
-                </div>
-                
-                <div class="chart-container">
-                    <div class="chart-row">
-                        <div class="chart-label">
-                            <span>복잡한 로직 처리 (If/For문)</span>
-                            <span style="color: var(--text-muted);">JSON vs <span style="color: var(--accent-blue);">Code</span></span>
-                        </div>
-                        <div class="bar-bg"><div class="bar-fill fill-json w-json-1"></div></div>
-                        <div class="bar-bg" style="margin-top: 4px;"><div class="bar-fill fill-code w-code-1"></div></div>
-                    </div>
-                    <div class="chart-row">
-                        <div class="chart-label">
-                            <span>에러 발생 시 추적 및 복구력 (Stack Trace)</span>
-                        </div>
-                        <div class="bar-bg"><div class="bar-fill fill-json w-json-2"></div></div>
-                        <div class="bar-bg" style="margin-top: 4px;"><div class="bar-fill fill-code w-code-2"></div></div>
-                    </div>
-                    <div class="chart-row">
-                        <div class="chart-label">
-                            <span>다중 도구 연속 호출 유연성</span>
-                        </div>
-                        <div class="bar-bg"><div class="bar-fill fill-json w-json-3"></div></div>
-                        <div class="bar-bg" style="margin-top: 4px;"><div class="bar-fill fill-code w-code-3"></div></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="story-section fade-up" style="border: none;">
-            <div class="bridge">
-                <h2 style="color: var(--text-main);">Next: smolagents 프레임워크</h2>
-                <p style="margin-bottom: 0;">이론을 완벽히 이해했다면, 이제 코드를 작성할 차례입니다.</p>
-                <p>다음 강의에서는 Hugging Face가 만든 초경량(1,000줄 미만) 코드 에이전트 라이브러리,<br><strong>smolagents</strong>를 활용해 나만의 에이전트를 직접 구축해 봅니다.</p>
-                <a href="#lecture-2" class="btn">Lecture 2. 실전 구축하기 →</a>
-            </div>
-        </section>
+        </div>
     </div>
-
-    <script>
-        // Intersection Observer for Scroll Animations
-        const observerOptions = { root: null, rootMargin: '0px', threshold: 0.3 };
-        const observer = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                    observer.unobserve(entry.target); // 한 번만 실행되도록
-                }
-            });
-        }, observerOptions);
-
-        document.querySelectorAll('.fade-up').forEach((el) => {
-            observer.observe(el);
-        });
-    </script>
+    
+    <script src="./assets/js/main.js"></script>
 </body>
 </html>
