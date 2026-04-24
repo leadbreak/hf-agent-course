@@ -1,0 +1,68 @@
+/* === 디자인 시스템 변수 === */
+:root {
+    --bg-base: #080c14;
+    --bg-surface: #0f172a;
+    --bg-card: #1e293b;
+    --hf-yellow: #FFD21E;
+    --hf-yellow-dim: rgba(255, 210, 30, 0.15);
+    --accent-blue: #38bdf8;
+    --accent-green: #4ade80;
+    --accent-red: #f87171;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body { background-color: var(--bg-base); color: var(--text-primary); line-height: 1.7; overflow-x: hidden; padding-bottom: 5rem; }
+
+/* === 레이아웃 및 타이포그래피 === */
+.container { max-width: 1040px; margin: 0 auto; padding: 0 2rem; }
+.text-center { text-align: center; }
+h1 { font-size: 3.5rem; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 1.5rem; }
+h2 { font-size: 2rem; margin-bottom: 1.5rem; font-weight: 700; }
+.lead { font-size: 1.2rem; color: var(--text-secondary); max-width: 800px; }
+.badge { display: inline-block; background: var(--hf-yellow-dim); color: var(--hf-yellow); padding: 0.4rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 700; margin-bottom: 1.5rem; border: 1px solid rgba(255, 210, 30, 0.3); }
+
+/* === 내비게이션 === */
+.nav-bar { position: sticky; top: 0; background: rgba(8, 12, 20, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color); padding: 1rem 2rem; z-index: 100; display: flex; justify-content: space-between; align-items: center; }
+.nav-back { color: var(--hf-yellow); text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
+.nav-back:hover { opacity: 0.8; }
+
+/* === 카드 컴포넌트 === */
+.card { background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 24px; padding: 3rem; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+.story-section { margin-top: 5rem; }
+
+.course-card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 2rem; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit; transition: all 0.3s; }
+.course-card:not(.disabled):hover { border-color: var(--hf-yellow); transform: translateY(-3px); box-shadow: 0 10px 25px rgba(255, 210, 30, 0.1); }
+.card-action { background: var(--hf-yellow-dim); color: var(--hf-yellow); padding: 0.5rem 1.2rem; border-radius: 8px; font-weight: bold; }
+
+/* === 애니메이션 클래스 (Observer 트리거) === */
+.reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+.reveal.active { opacity: 1; transform: translateY(0); }
+
+/* === 아키텍처 다이어그램 스타일 === */
+.anatomy-visual { background: var(--bg-base); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem; text-align: center; }
+.block { padding: 1.25rem; border-radius: 12px; font-weight: 700; font-size: 1.1rem; }
+.block-brain { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+.block-body { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); }
+.block-agent { background: var(--hf-yellow-dim); color: var(--hf-yellow); border: 1px solid var(--hf-yellow); margin-top: 1rem; box-shadow: 0 0 20px rgba(255, 210, 30, 0.2); }
+
+/* === ReAct SVG & 터미널 === */
+.react-box { background: var(--bg-base); border-radius: 16px; padding: 2rem; margin-top: 2rem; text-align: center; }
+.circle-node { fill: var(--bg-surface); stroke: var(--text-secondary); stroke-width: 3; transition: all 0.4s ease; }
+.circle-node.active { stroke: var(--hf-yellow); fill: var(--hf-yellow-dim); filter: drop-shadow(0 0 10px var(--hf-yellow)); }
+.node-text { fill: var(--text-primary); font-size: 16px; font-weight: bold; text-anchor: middle; }
+.live-terminal { background: #04060a; border-radius: 8px; padding: 1.25rem; margin-top: 2rem; font-family: "Fira Code", monospace; font-size: 0.95rem; text-align: left; border: 1px solid var(--border-color); min-height: 80px; }
+.term-body { color: var(--accent-green); margin-top: 0.5rem; }
+.cursor { display: inline-block; width: 8px; height: 16px; background: var(--accent-green); animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* === 차트 스타일 === */
+.chart-metric { margin-bottom: 2rem; }
+.metric-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem; }
+.bar-track { height: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; overflow: hidden; margin-bottom: 0.5rem; }
+.bar-fill { height: 100%; width: 0; border-radius: 6px; transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.bg-json { background: var(--accent-red); }
+.bg-code { background: var(--accent-blue); }
