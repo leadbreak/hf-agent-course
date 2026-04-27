@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecture 1: LLM에서 Agent로 | HF Agent Course</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+    <nav class="nav-bar">
+        <a href="../index.html" class="nav-back">← Course Home</a>
+        <div style="color: var(--text-secondary); font-size: 0.9rem;">Lecture 01</div>
+    </nav>
+
+    <div class="container">
+        <header class="hero reveal text-center" style="padding-top: 4rem;">
+            <h1>LLM에서 Agent로,<br><span style="color: var(--hf-yellow);">시스템 아키텍처</span>의 전환</h1>
+            <p class="lead" style="margin: 0 auto;">정적 언어 모델의 한계를 극복하고, 실행 가능한 코드를 매개로 디지털 환경을 직접 제어하는 자율형 에이전트의 원리를 파헤칩니다.</p>
+        </header>
+
+        <section class="story-section reveal">
+            <div class="card grid-2">
+                <div>
+                    <h2 style="color: var(--accent-blue);">1. 에이전트의 해부학 (Anatomy)</h2>
+                    <p>기존의 LLM은 연산 규칙을 암기한 훌륭한 <strong>'두뇌(Brain)'</strong>지만, 외부 세계 시스템에 직접 접근할 권한이나 환경(신체)이 없었습니다.</p>
+                    <p style="margin-top: 1rem;">에이전트는 이 두뇌에 Python 샌드박스, 웹 검색기, 데이터베이스 쿼리 실행기와 같은 <strong>'도구(Tools)'</strong>를 연결한 아키텍처입니다. 이를 통해 단순한 텍스트 생성을 넘어, 실제 시스템 상태를 변경하는 영향력(Agency)을 확보합니다.</p>
+                </div>
+                <div class="anatomy-visual">
+                    <div class="block block-brain">LLM Engine (Reasoning)</div>
+                    <div style="color: var(--text-secondary); font-size: 1.5rem; padding: 0.5rem 0;">+</div>
+                    <div class="block block-body">Tools (Execution Sandbox)</div>
+                    <div class="block block-agent">Autonomous Agent</div>
+                </div>
+            </div>
+        </section>
+
+        
+
+        <section class="story-section reveal">
+            <div class="card">
+                <h2 style="color: var(--hf-yellow);">2. 무한 실행 엔진: ReAct 사이클</h2>
+                <p>에이전트는 프롬프트 파싱과 코드 실행을 반복하며 스스로 작업을 완수합니다. 아래 시뮬레이터를 통해 <strong>사고(Thought) ➔ 행동(Action) ➔ 관찰(Observation)</strong>로 이어지는 백그라운드 엔진의 실행 트레이스를 확인하세요.</p>
+                
+                <div class="react-box">
+                    <svg viewBox="0 0 600 150" width="100%" style="max-width: 500px;">
+                        <path d="M 80 75 L 300 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
+                        <path d="M 300 75 L 520 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
+                        <path d="M 520 75 Q 300 160 80 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3" stroke-dasharray="5,5"/>
+                        
+                        <circle id="node-thought" class="circle-node" cx="80" cy="75" r="40" />
+                        <text class="node-text" x="80" y="80">Thought</text>
+                        
+                        <circle id="node-action" class="circle-node" cx="300" cy="75" r="40" />
+                        <text class="node-text" x="300" y="80">Action</text>
+                        
+                        <circle id="node-obs" class="circle-node" cx="520" cy="75" r="40" />
+                        <text class="node-text" x="520" y="80">Obs</text>
+                    </svg>
+
+                    <div class="live-terminal">
+                        <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase;">Engine Trace Log</div>
+                        <div><span id="term-content" class="term-body"></span><span class="cursor"></span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="story-section reveal">
+            <div class="card grid-2">
+                <div>
+                    <h2 style="color: var(--accent-green);">3. 최적화의 끝: Code Agent</h2>
+                    <p>과거에는 LLM이 도구를 사용할 때 JSON 형태로 매개변수를 출력하도록 강제했습니다. 하지만 JSON은 조건문(If)이나 반복문(For) 등 프로그래밍 로직을 담을 수 없습니다.</p>
+                    <p style="margin-top: 1rem;">최신 아키텍처인 <strong>Code Agent</strong>는 LLM이 직접 네이티브 Python 코드를 생성하고 실행합니다. 불필요한 파싱 오버헤드를 줄이고, 복잡한 데이터 연산 로직을 단일 루프 안에서 우아하게 처리합니다.</p>
+                </div>
+                
+                <div>
+                    <div class="chart-metric">
+                        <div class="metric-header">
+                            <span>복잡한 제어 흐름(For / If) 유연성</span>
+                            <span style="color: var(--accent-blue);">Code Agent 압도적</span>
+                        </div>
+                        <div class="bar-track"><div class="bar-fill bg-json" data-width="20%"></div></div>
+                        <div class="bar-track"><div class="bar-fill bg-code" data-width="95%"></div></div>
+                    </div>
+                    <div class="chart-metric">
+                        <div class="metric-header">
+                            <span>에러 발생 시 명시적 추적 (Stack Trace)</span>
+                            <span style="color: var(--accent-blue);">Code Agent 압도적</span>
+                        </div>
+                        <div class="bar-track"><div class="bar-fill bg-json" data-width="35%"></div></div>
+                        <div class="bar-track"><div class="bar-fill bg-code" data-width="90%"></div></div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-secondary); justify-content: flex-end;">
+                        <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-red); border-radius: 2px;"></span> JSON Agent</span>
+                        <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-blue); border-radius: 2px;"></span> Code Agent</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="reveal text-center" style="margin-top: 5rem;">
+            <a href="../index.html" style="color: var(--hf-yellow); text-decoration: none; font-size: 1.1rem; font-weight: bold;">← 커리큘럼 홈으로 돌아가기</a>
+        </div>
+    </div>
+
+    <script src="../assets/js/main.js" defer></script>
+</body>
+</html>
