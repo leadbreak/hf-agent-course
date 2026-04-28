@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lecture 1: LLM에서 Agent로 | HF Agent Course</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <style>
+        /* 추가적인 본문 코드 블록 및 강조 스타일 */
+        .tech-snippet { background: #0d1117; border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; font-family: "Fira Code", Consolas, monospace; font-size: 0.9rem; color: #e6edf3; overflow-x: auto; line-height: 1.5; }
+        .tech-snippet .comment { color: #8b949e; }
+        .tech-snippet .keyword { color: #ff7b72; }
+        .tech-snippet .string { color: #a5d6ff; }
+        .highlight-text { background: rgba(56, 189, 248, 0.1); padding: 0.2rem 0.4rem; border-radius: 4px; color: var(--accent-blue); font-weight: bold; }
+    </style>
 </head>
 <body>
 
@@ -16,33 +24,50 @@
     <div class="container">
         <header class="hero reveal text-center" style="padding-top: 4rem;">
             <h1>LLM에서 Agent로,<br><span style="color: var(--hf-yellow);">시스템 아키텍처</span>의 전환</h1>
-            <p class="lead" style="margin: 0 auto;">정적 언어 모델의 한계를 극복하고, 실행 가능한 코드를 매개로 디지털 환경을 직접 제어하는 자율형 에이전트의 원리를 파헤칩니다.</p>
+            <p class="lead" style="margin: 0 auto;">정적 언어 모델은 본질적으로 '다음 토큰 예측기'에 불과합니다. 이 추론 엔진이 어떻게 실행 가능한 코드를 매개로 디지털 환경을 직접 제어하는 자율형 에이전트로 거듭나는지, 그 기저의 메커니즘을 파헤칩니다.</p>
         </header>
 
         <section class="story-section reveal">
-            <div class="card grid-2">
-                <div>
-                    <h2 style="color: var(--accent-blue);">1. 에이전트의 해부학 (Anatomy)</h2>
-                    <p>기존의 LLM은 연산 규칙을 암기한 훌륭한 <strong>'두뇌(Brain)'</strong>지만, 외부 세계 시스템에 직접 접근할 권한이나 환경(신체)이 없었습니다.</p>
-                    <p style="margin-top: 1rem;">에이전트는 이 두뇌에 Python 샌드박스, 웹 검색기, 데이터베이스 쿼리 실행기와 같은 <strong>'도구(Tools)'</strong>를 연결한 아키텍처입니다. 이를 통해 단순한 텍스트 생성을 넘어, 실제 시스템 상태를 변경하는 영향력(Agency)을 확보합니다.</p>
-                </div>
-                <div class="anatomy-visual">
-                    <div class="block block-brain">LLM Engine (Reasoning)</div>
-                    <div style="color: var(--text-secondary); font-size: 1.5rem; padding: 0.5rem 0;">+</div>
-                    <div class="block block-body">Tools (Execution Sandbox)</div>
-                    <div class="block block-agent">Autonomous Agent</div>
+            <div class="card">
+                <h2 style="color: var(--accent-blue);">1. 에이전트의 해부학 (Anatomy)</h2>
+                
+                <div class="grid-2" style="margin-top: 2rem;">
+                    <div>
+                        <p>대형 언어 모델(LLM)은 방대한 데이터로 학습된 훌륭한 <strong>'두뇌(Brain)'</strong>입니다. 그러나 이 두뇌는 치명적인 약점을 가집니다. 학습 시점(Cut-off) 이후의 세계를 알지 못하며, 복잡한 수학 연산에서 환각(Hallucination)을 일으키고, 데이터베이스나 외부 API에 직접 접근할 권한이 없습니다.</p>
+                        <p style="margin-top: 1rem;">에이전트 아키텍처는 이 고립된 두뇌에 <strong>'신체(Tools)'</strong>를 연결하는 작업입니다. Python 샌드박스, 웹 검색 크롤러, SQL 쿼리 실행기 등 외부 시스템과 상호작용할 수 있는 도구를 제공함으로써, 단순 텍스트 생성을 넘어 현실 세계의 상태를 변경하는 <span class="highlight-text">에이전시(Agency)</span>를 시스템에 부여합니다.</p>
+                    </div>
+                    <div class="anatomy-visual">
+                        <div class="block block-brain">LLM Engine (Reasoning)</div>
+                        <div style="color: var(--text-secondary); font-size: 1.5rem; padding: 0.5rem 0;">+</div>
+                        <div class="block block-body">Tools (Execution Sandbox)</div>
+                        <div class="block block-agent">Autonomous Agent</div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        
-
         <section class="story-section reveal">
             <div class="card">
-                <h2 style="color: var(--hf-yellow);">2. 무한 실행 엔진: ReAct 사이클</h2>
-                <p>에이전트는 프롬프트 파싱과 코드 실행을 반복하며 스스로 작업을 완수합니다. 아래 시뮬레이터를 통해 <strong>사고(Thought) ➔ 행동(Action) ➔ 관찰(Observation)</strong>로 이어지는 백그라운드 엔진의 실행 트레이스를 확인하세요.</p>
+                <h2 style="color: var(--hf-yellow);">2. 무한 실행 엔진: ReAct 사이클과 Stop Sequence</h2>
+                <p>가장 중요한 질문은 이것입니다. <strong>"문자열만 뱉어내는 LLM이 도대체 어떻게 파이썬 함수를 '실행'하는가?"</strong></p>
+                <p style="margin-top: 1rem;">그 비밀은 프롬프트 엔지니어링과 파서(Parser)의 결합에 있습니다. 시스템은 아래와 같은 엄격한 형식의 프롬프트를 LLM에 주입하여 <strong>사고(Thought) ➔ 행동(Action) ➔ 관찰(Observation)</strong>의 ReAct 패턴을 강제합니다.</p>
+
+                <div class="tech-snippet">
+<span class="comment"># Agent의 System Prompt 예시</span>
+You are a helpful assistant with access to the following tools:
+- get_weather(location: str): Returns weather info.
+- calculate(expression: str): Evaluates math expressions.
+
+Use the following format strictly:
+<span class="keyword">Thought:</span> Consider what to do next.
+<span class="keyword">Action:</span> The action to take, must be one of [get_weather, calculate]
+<span class="keyword">Action Input:</span> The input to the action
+<span class="keyword">Observation:</span> The result of the action (This will be provided by the system)
+                </div>
+
+                <p style="margin-top: 1.5rem;">LLM이 텍스트를 스트리밍하며 생성하다가 <code>Action Input: [데이터]</code> 부분까지 출력하면, 시스템은 <strong>생성을 강제 중단(Stop Sequence)</strong> 시킵니다. 이후 생성된 문자열을 파싱하여 로컬 환경에서 도구를 대신 실행하고, 그 결과값을 <code>Observation:</code> 뒤에 이어붙여 LLM에게 다시 전달합니다. 목표가 달성될 때까지 이 루프는 멈추지 않습니다.</p>
                 
-                <div class="react-box">
+                <div class="react-box" style="margin-top: 3rem;">
                     <svg viewBox="0 0 600 150" width="100%" style="max-width: 500px;">
                         <path d="M 80 75 L 300 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
                         <path d="M 300 75 L 520 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
@@ -67,34 +92,58 @@
         </section>
 
         <section class="story-section reveal">
-            <div class="card grid-2">
-                <div>
-                    <h2 style="color: var(--accent-green);">3. 최적화의 끝: Code Agent</h2>
-                    <p>과거에는 LLM이 도구를 사용할 때 JSON 형태로 매개변수를 출력하도록 강제했습니다. 하지만 JSON은 조건문(If)이나 반복문(For) 등 프로그래밍 로직을 담을 수 없습니다.</p>
-                    <p style="margin-top: 1rem;">최신 아키텍처인 <strong>Code Agent</strong>는 LLM이 직접 네이티브 Python 코드를 생성하고 실행합니다. 불필요한 파싱 오버헤드를 줄이고, 복잡한 데이터 연산 로직을 단일 루프 안에서 우아하게 처리합니다.</p>
-                </div>
+            <div class="card">
+                <h2 style="color: var(--accent-green);">3. 최적화의 끝: Code Agent의 등장</h2>
+                <p>과거 OpenAI의 Function Calling을 비롯한 초기 에이전트 모델들은 도구를 호출할 때 <strong>JSON 스키마</strong>를 생성하도록 설계되었습니다. 하지만 이 방식은 실무 환경에서 심각한 오버헤드와 한계를 드러냈습니다.</p>
                 
-                <div>
-                    <div class="chart-metric">
-                        <div class="metric-header">
-                            <span>복잡한 제어 흐름(For / If) 유연성</span>
-                            <span style="color: var(--accent-blue);">Code Agent 압도적</span>
+                <div class="grid-2" style="margin-top: 2rem;">
+                    <div>
+                        <p style="margin-bottom: 1rem;">최신 아키텍처인 <strong>Code Agent</strong>는 LLM이 직접 네이티브 Python 코드를 생성하고 실행하는 패러다임입니다.</p>
+                        <ul style="color: var(--text-secondary);">
+                            <li><strong>단일 루프 처리:</strong> JSON으로는 불가능한 `For` 반복문이나 `If` 조건문을 사용하여 여러 도구를 한 번의 호출로 엮을 수 있습니다.</li>
+                            <li><strong>변수 상태 저장:</strong> 도구 A의 출력값을 변수에 담아 도구 B의 입력값으로 바로 넘길 수 있어, 컨텍스트 윈도우 낭비를 막습니다.</li>
+                            <li><strong>명확한 디버깅:</strong> 파싱 에러가 발생했을 때, 스키마 오류를 분석하는 대신 파이썬 고유의 Traceback 로그를 LLM에게 그대로 피드백할 수 있습니다.</li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <div class="chart-metric">
+                            <div class="metric-header">
+                                <span>복잡한 제어 흐름(For / If) 유연성</span>
+                                <span style="color: var(--accent-blue);">Code Agent 압도적</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill bg-json" data-width="20%"></div></div>
+                            <div class="bar-track"><div class="bar-fill bg-code" data-width="95%"></div></div>
                         </div>
-                        <div class="bar-track"><div class="bar-fill bg-json" data-width="20%"></div></div>
-                        <div class="bar-track"><div class="bar-fill bg-code" data-width="95%"></div></div>
-                    </div>
-                    <div class="chart-metric">
-                        <div class="metric-header">
-                            <span>에러 발생 시 명시적 추적 (Stack Trace)</span>
-                            <span style="color: var(--accent-blue);">Code Agent 압도적</span>
+                        <div class="chart-metric">
+                            <div class="metric-header">
+                                <span>에러 발생 시 명시적 추적 (Stack Trace)</span>
+                                <span style="color: var(--accent-blue);">Code Agent 압도적</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill bg-json" data-width="35%"></div></div>
+                            <div class="bar-track"><div class="bar-fill bg-code" data-width="90%"></div></div>
                         </div>
-                        <div class="bar-track"><div class="bar-fill bg-json" data-width="35%"></div></div>
-                        <div class="bar-track"><div class="bar-fill bg-code" data-width="90%"></div></div>
+                        <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-secondary); justify-content: flex-end;">
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-red); border-radius: 2px;"></span> JSON Agent</span>
+                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-blue); border-radius: 2px;"></span> Code Agent</span>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-secondary); justify-content: flex-end;">
-                        <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-red); border-radius: 2px;"></span> JSON Agent</span>
-                        <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-blue); border-radius: 2px;"></span> Code Agent</span>
-                    </div>
+                </div>
+
+                <div class="tech-snippet" style="margin-top: 2rem;">
+<span class="comment"># Code Agent가 생성하는 Action 예시 (Python Code)</span>
+<span class="keyword">Thought:</span> I need to fetch the data, filter it by year, and calculate the average. 
+Doing this with JSON would require 3 separate ReAct loops. 
+I will do it all in one Python block.
+
+<span class="keyword">Action:</span>
+<span class="keyword">def</span> process_data():
+    raw_data = fetch_db_records(table=<span class="string">"sales_2026"</span>)
+    filtered = [x <span class="keyword">for</span> x <span class="keyword">in</span> raw_data <span class="keyword">if</span> x[<span class="string">'status'</span>] == <span class="string">'completed'</span>]
+    avg_value = sum(x[<span class="string">'amount'</span>] <span class="keyword">for</span> x <span class="keyword">in</span> filtered) / len(filtered)
+    <span class="keyword">return</span> f<span class="string">"The average completed sales value is {avg_value}"</span>
+
+result = process_data()
                 </div>
             </div>
         </section>
