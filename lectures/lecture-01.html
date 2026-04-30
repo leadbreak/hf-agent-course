@@ -3,88 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lecture 1: LLM에서 Agent로 | HF Agent Course</title>
+    <title>Lecture 1: AI 에이전트의 원리와 핵심 구조 | HF Agent Course</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
-        /* 추가적인 본문 코드 블록 및 강조 스타일 */
-        .tech-snippet { background: #0d1117; border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; font-family: "Fira Code", Consolas, monospace; font-size: 0.9rem; color: #e6edf3; overflow-x: auto; line-height: 1.5; }
-        .tech-snippet .comment { color: #8b949e; }
-        .tech-snippet .keyword { color: #ff7b72; }
-        .tech-snippet .string { color: #a5d6ff; }
-        .highlight-text { background: rgba(56, 189, 248, 0.1); padding: 0.2rem 0.4rem; border-radius: 4px; color: var(--accent-blue); font-weight: bold; }
+        /* 대용량 텍스트 강의용 커스텀 확장 스타일 */
+        .tech-box { background: #0d1117; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.75rem; margin: 1.5rem 0; font-family: "Fira Code", Consolas, monospace; font-size: 0.9rem; color: #e6edf3; overflow-x: auto; line-height: 1.6; }
+        .tech-box .keyword { color: #ff7b72; font-weight: bold; }
+        .tech-box .string { color: #a5d6ff; }
+        .tech-box .comment { color: #8b949e; font-style: italic; }
+        .tech-box .builtin { color: #79c0ff; }
+        
+        .concept-badge { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
+        .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border-color), transparent); margin: 4rem 0; }
+        
+        table.tech-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.95rem; }
+        table.tech-table th { background: rgba(255, 255, 255, 0.03); padding: 1rem; text-align: left; border-bottom: 2px solid var(--border-color); color: var(--hf-yellow); }
+        table.tech-table td { padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: var(--text-secondary); }
+        table.tech-table tr:hover { background: rgba(255, 255, 255, 0.01); }
+        table.tech-table strong { color: var(--text-primary); }
+
+        .important-note { background: rgba(239, 68, 68, 0.07); border-left: 4px solid var(--accent-red); padding: 1.5rem; border-radius: 0 12px 12px 0; margin: 1.5rem 0; }
+        .tip-note { background: rgba(74, 222, 128, 0.07); border-left: 4px solid var(--accent-green); padding: 1.5rem; border-radius: 0 12px 12px 0; margin: 1.5rem 0; }
     </style>
 </head>
 <body>
 
     <nav class="nav-bar">
         <a href="../index.html" class="nav-back">← Course Home</a>
-        <div style="color: var(--text-secondary); font-size: 0.9rem;">Lecture 01</div>
+        <div style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">Unit 1: Introduction to Agents</div>
     </nav>
 
     <div class="container">
-        <header class="hero reveal text-center" style="padding-top: 4rem;">
-            <h1>LLM에서 Agent로,<br><span style="color: var(--hf-yellow);">시스템 아키텍처</span>의 전환</h1>
-            <p class="lead" style="margin: 0 auto;">정적 언어 모델은 본질적으로 '다음 토큰 예측기'에 불과합니다. 이 추론 엔진이 어떻게 실행 가능한 코드를 매개로 디지털 환경을 직접 제어하는 자율형 에이전트로 거듭나는지, 그 기저의 메커니즘을 파헤칩니다.</p>
+        <header class="hero reveal text-center">
+            <span class="badge">Unit 1. 에이전트 입문 클래스</span>
+            <h1>What is an Agent?<br>지능형 에이전트의 구조적 해부</h1>
+            <p class="lead" style="margin: 0 auto; margin-top: 1rem;">언어 모델의 정적 텍스트 생성을 넘어, 자율적 추론과 환경 상호작용 능력을 갖춘 에이전트 시스템의 동작 메커니즘을 마스터합니다.</p>
         </header>
 
         <section class="story-section reveal">
             <div class="card">
-                <h2 style="color: var(--accent-blue);">1. 에이전트의 해부학 (Anatomy)</h2>
+                <h2 style="color: var(--accent-blue);">1. 에이전트의 정의와 이분법 구조 (Brain & Body)</h2>
+                <p>Hugging Face Agents Course에서 정의하는 <strong>에이전트(Agent)</strong>는 사용자가 정의한 목표를 달성하기 위해 AI 모델을 활용하여 외부 환경과 능동적으로 상호작용하는 시스템입니다[cite: 18, 19]. 에이전트는 본질적으로 다음 두 가지 요소의 결합체입니다[cite: 20].</p>
                 
                 <div class="grid-2" style="margin-top: 2rem;">
                     <div>
-                        <p>대형 언어 모델(LLM)은 방대한 데이터로 학습된 훌륭한 <strong>'두뇌(Brain)'</strong>입니다. 그러나 이 두뇌는 치명적인 약점을 가집니다. 학습 시점(Cut-off) 이후의 세계를 알지 못하며, 복잡한 수학 연산에서 환각(Hallucination)을 일으키고, 데이터베이스나 외부 API에 직접 접근할 권한이 없습니다.</p>
-                        <p style="margin-top: 1rem;">에이전트 아키텍처는 이 고립된 두뇌에 <strong>'신체(Tools)'</strong>를 연결하는 작업입니다. Python 샌드박스, 웹 검색 크롤러, SQL 쿼리 실행기 등 외부 시스템과 상호작용할 수 있는 도구를 제공함으로써, 단순 텍스트 생성을 넘어 현실 세계의 상태를 변경하는 <span class="highlight-text">에이전시(Agency)</span>를 시스템에 부여합니다.</p>
+                        <ul>
+                            <li><strong>두뇌 (The Brain - AI Model):</strong> 모든 추론(Reasoning)과 계획 수립(Planning)이 일어나는 핵심 엔진입니다[cite: 20, 21]. 현재의 상황을 분석하고 목표 달성을 위해 어떤 행동(Action)을 취할지 결정합니다[cite: 21]. 주로 LLM이나 VLM(Vision-Language Model)이 이 역할을 맡습니다[cite: 33, 36].</li>
+                            <li><strong>신체 (The Body - Capabilities & Tools):</strong> 에이전트에게 허용된 실행 능력의 범위입니다[cite: 22]. 에이전트는 자신이 장착하고 있는 도구(Tools) 목록을 기반으로 환경에 개입하고 행동을 수행합니다[cite: 14, 23]. 날개가 없는 인간이 날 수 없듯이, 에이전트의 실행력은 부여된 도구의 한계에 종속됩니다[cite: 23, 24].</li>
+                        </ul>
                     </div>
                     <div class="anatomy-visual">
-                        <div class="block block-brain">LLM Engine (Reasoning)</div>
-                        <div style="color: var(--text-secondary); font-size: 1.5rem; padding: 0.5rem 0;">+</div>
-                        <div class="block block-body">Tools (Execution Sandbox)</div>
-                        <div class="block block-agent">Autonomous Agent</div>
+                        <div class="block block-brain">The Brain (LLM / VLM)</div>
+                        <div style="color: var(--text-secondary); font-size: 1.2rem; padding: 0;">Reasoning & Planning</div>
+                        <div class="block block-body">The Body (Tools List)</div>
+                        <div class="block block-agent">Agency (상호작용 능력)</div>
                     </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <h3>자율성 스펙트럼 (The Spectrum of Agency)</h3>
+                <p>에이전트 시스템은 프로그램의 제어 흐름(Control Flow)을 LLM의 출력물이 얼마나 주도하느냐에 따라 연속적인 자율성 스펙트럼 상에 존재합니다[cite: 25].</p>
+                
+                <table class="tech-table">
+                    <thead>
+                        <tr>
+                            <th>자율성 수준</th>
+                            <th>패턴 분류 (Pattern)</th>
+                            <th>제어 흐름의 특징 (Control Flow)</th>
+                            <th>예시 의사코드</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>☆☆☆ (Level 0)</td>
+                            <td><strong>Simple Processor</strong></td>
+                            <td>LLM 출력이 전체 프로그램 흐름에 영향을 주지 않음 [cite: 27]</td>
+                            <td><code>process_llm_output(resp)</code> [cite: 27]</td>
+                        </tr>
+                        <tr>
+                            <td>★☆☆ (Level 1)</td>
+                            <td><strong>Router</strong></td>
+                            <td>LLM의 판단에 따라 기본적인 분기문(If/Else) 제어 [cite: 28]</td>
+                            <td><code>if llm_decide(): path_a()</code> [cite: 28]</td>
+                        </tr>
+                        <tr>
+                            <td>★★☆ (Level 2)</td>
+                            <td><strong>Tool Caller</strong></td>
+                            <td>LLM이 실행할 함수와 인자(Arguments)를 직접 결정 [cite: 29]</td>
+                            <td><code>run_function(chosen_tool, args)</code> [cite: 29]</td>
+                        </tr>
+                        <tr>
+                            <td>★★★ (Level 3)</td>
+                            <td><strong>Multi-step Agent</strong></td>
+                            <td>LLM이 루프의 종료 및 지속 여부를 스스로 판단하며 주도 [cite: 30]</td>
+                            <td><code>while llm_should_continue():</code> [cite: 30]</td>
+                        </tr>
+                        <tr>
+                            <td>★★★ (Level 4)</td>
+                            <td><strong>Multi-Agent</strong></td>
+                            <td>하나의 에이전트 워크플로우가 다른 자율 에이전트를 트리거 [cite: 31]</td>
+                            <td><code>if llm_trigger(): execute_agent()</code> [cite: 31]</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="story-section reveal">
+            <div class="card">
+                <h2 style="color: var(--hf-yellow);">2. LLM 엔진의 본질과 Chat Template 평면화</h2>
+                <p>에이전트의 두뇌 역할을 하는 디코더 기반 LLM(Decoder-based LLM)은 본질적으로 <strong>'이전 토큰들이 주어졌을 때 다음 토큰을 예측'</strong>하는 자동회귀(Autoregressive) 모델입니다[cite: 84, 88, 92, 111]. 모델은 텍스트 입력을 받아 텍스트를 출력할 뿐이며, 자체적으로 과거를 '기억'하는 메모리 공간을 가지고 있지 않습니다[cite: 33, 159].</p>
+
+                <div class="important-note">
+                    <strong>⚠️ Chat History Flattening (대화 기록 평면화)</strong><br>
+                    사용자가 웹 UI를 통해 에이전트와 주고받는 다회차 대화(User and Assistant turn)는 개발자 전용 추상화 레이어일 뿐입니다[cite: 158]. LLM 엔진이 구동될 때마다, 과거의 모든 대화 내역 목록은 <strong>단 하나의 거대한 단일 프롬프트 시퀀스 문자열</strong>로 완전히 합쳐져서(Concatenated) 모델에 처음부터 끝까지 통째로 주입됩니다[cite: 158, 175, 176].
+                </div>
+
+                <h3>특수 토큰(Special Tokens)과 프로바이더별 다양성</h3>
+                <p>단일 문자열로 평면화된 프롬프트 속에서 시스템 지침, 사용자의 발화, 에이전트의 응답 영역을 명확히 구분하기 위해 모델 고유의 <span class="concept-badge">특수 토큰(Special Tokens)</span>이 사용됩니다[cite: 99, 101, 166]. 모델은 텍스트를 생성하다가 문장을 끝내야 할 타이밍에 문장 종료 토큰(EOS, End of Sequence)을 내뱉고 멈추게 됩니다[cite: 102, 112].</p>
+
+                <table class="tech-table">
+                    <thead>
+                        <tr>
+                            <th>Model Engine</th>
+                            <th>Provider</th>
+                            <th>EOS Token (종료 토큰)</th>
+                            <th>구조적 역할 및 기능 [cite: 103]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>GPT-4</strong></td>
+                            <td>OpenAI</td>
+                            <td><code>&lt;|endoftext|&gt;</code></td>
+                            <td>메시지 텍스트의 끝을 명시 [cite: 104, 105]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Llama 3</strong></td>
+                            <td>Meta AI</td>
+                            <td><code>&lt;|eot_id|&gt;</code></td>
+                            <td>전체 대화 시퀀스 및 회차의 종료를 명시 [cite: 105, 106]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>DeepDouble-R1</strong></td>
+                            <td>DeepSeek</td>
+                            <td><code>&lt;|end_of_sentence|&gt;</code></td>
+                            <td>생성된 메시지 스트림의 결속 지점을 처리 [cite: 106]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>SmolLM2</strong></td>
+                            <td>Hugging Face</td>
+                            <td><code>&lt;|im_end|&gt;</code></td>
+                            <td>ChatML 지침 또는 특정 인스트럭션 메시지 종료 [cite: 106, 107]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Gemma</strong></td>
+                            <td>Google</td>
+                            <td><code>&lt;end_of_turn&gt;</code></td>
+                            <td>단일 대화 턴(Turn)의 경계를 확정 [cite: 107, 108]</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="tip-note">
+                    <strong>💡 Base Model vs Instruct Model</strong><br>
+                    인터넷의 원시 말뭉치를 학습한 <strong>Base 모델</strong>은 단순 문장 이어쓰기만 수행합니다[cite: 179]. 이를 대화형 및 도구 호출형 시스템으로 쓰기 위해, 지시사항을 따르도록 파인튜닝한 변형이 <strong>Instruct 모델</strong>입니다[cite: 180]. 이 과정에서 프롬프트를 일관되게 구조화하기 위해 Jinja2 템플릿 엔진 기반의 <code>transformers.apply_chat_template()</code> 함수가 백엔드에서 필수적으로 동작합니다[cite: 188, 193, 197].
                 </div>
             </div>
         </section>
 
         <section class="story-section reveal">
             <div class="card">
-                <h2 style="color: var(--hf-yellow);">2. 무한 실행 엔진: ReAct 사이클과 Stop Sequence</h2>
-                <p>가장 중요한 질문은 이것입니다. <strong>"문자열만 뱉어내는 LLM이 도대체 어떻게 파이썬 함수를 '실행'하는가?"</strong></p>
-                <p style="margin-top: 1rem;">그 비밀은 프롬프트 엔지니어링과 파서(Parser)의 결합에 있습니다. 시스템은 아래와 같은 엄격한 형식의 프롬프트를 LLM에 주입하여 <strong>사고(Thought) ➔ 행동(Action) ➔ 관찰(Observation)</strong>의 ReAct 패턴을 강제합니다.</p>
+                <h2 style="color: var(--accent-green);">3. AI Tools 설계와 Python Introspection 자동화</h2>
+                <p>도구(Tool)는 에이전트가 정적 학습 데이터의 시공간적 한계(Knowledge Cut-off)를 깨부수고 실시간 데이터에 접근할 수 있게 해주는 파이썬 함수입니다[cite: 213, 221]. 에이전트 라이브러리 내부에서 유효한 도구로 인정받기 위해서는 다음의 명세가 완벽하게 정의되어 문자열 형태로 시스템 프롬프트에 주입되어야 합니다[cite: 223, 235, 270].</p>
+                
+                <ul style="margin: 1rem 0 2rem 1.5rem;">
+                    <li><strong>도구의 이름 (Name):</strong> LLM이 호출 타겟을 식별할 수 있는 명확한 명칭[cite: 223, 251, 261].</li>
+                    <li><strong>텍스트 설명문 (Description):</strong> 이 도구가 어떤 기능을 수행하고 언제 써야 하는지 기술한 설명[cite: 223, 251, 262].</li>
+                    <li><strong>인자 유형 및 타입 힌트 (Arguments with Typings):</strong> 입력 파라미터의 명칭과 명확한 데이터 타입[cite: 224, 251, 263].</li>
+                </ul>
 
-                <div class="tech-snippet">
-<span class="comment"># Agent의 System Prompt 예시</span>
-You are a helpful assistant with access to the following tools:
-- get_weather(location: str): Returns weather info.
-- calculate(expression: str): Evaluates math expressions.
+                <h3>@tool 데코레이터를 통한 자동 명세화 (Auto-formatting)</h3>
+                <p>매번 이러한 텍스트 스키마를 수동으로 작성하는 것은 오류에 취약합니다[cite: 241, 245]. 현대적인 에이전트 프레임워크(예: smolagents)는 파이썬의 **인트로스펙션(Introspection, inspect 모듈)** 기능을 활용해 소스 코드의 `docstring`과 `type hint`를 파싱하여 LLM용 설명 문자열을 자동으로 빌드합니다[cite: 252, 253, 254, 267].</p>
 
-Use the following format strictly:
-<span class="keyword">Thought:</span> Consider what to do next.
-<span class="keyword">Action:</span> The action to take, must be one of [get_weather, calculate]
-<span class="keyword">Action Input:</span> The input to the action
-<span class="keyword">Observation:</span> The result of the action (This will be provided by the system)
+                <div class="tech-box">
+<span class="keyword">import</span> inspect
+<span class="keyword">from</span> typing <span class="keyword">import</span> Any
+
+<span class="comment"># 에이전트 프레임워크 내부의 @tool 데코레이터 메커니즘 의사코드</span>
+<span class="keyword">def</span> tool(func: callable) -> Any:
+    <span class="keyword">class</span> <span class="builtin">GeneratedTool</span>:
+        <span class="keyword">def</span> <span class="builtin">__init__</span>(self):
+            self.name = func.__name__ <span class="comment"># 함수명이 도구 이름이 됨 [cite: 247, 261]</span>
+            self.description = func.__doc__ <span class="comment"># docstring 주석이 설명문이 됨 [cite: 247, 262]</span>
+            self.fn = func
+            
+        <span class="keyword">def</span> to_string(self) -> str:
+            <span class="comment"># inspect 모듈로 인자 명세와 타입을 추출하여 시스템 프롬프트용 텍스트 변환 [cite: 252, 254, 266]</span>
+            sig = inspect.signature(self.fn)
+            <span class="keyword">return</span> f<span class="string">"Tool Name: {self.name}\nDescription: {self.description}\nSignature: {sig}"</span>
+            
+    <span class="keyword">return</span> GeneratedTool()
+
+<span class="comment"># 실무 사용 예시</span>
+<span class="keyword">@tool</span>
+<span class="keyword">def</span> calculate_market_share(revenue: int, total_market: int) -> float:
+    <span class="comment">"""특정 기업의 매출액과 전체 시장 규모를 기반으로 시장 점유율(%)을 계산합니다."""</span>
+    <span class="keyword">return</span> (revenue / total_market) * 100
+                </div>
+                <p style="font-size: 0.95rem; color: var(--text-secondary);">이렇게 생성된 정보는 시스템 프롬프트 내에 바인딩되어 LLM에게 주입되며, 최근에는 모든 프레임워크와 모델에서 범용적으로 도구를 플러그인할 수 있도록 표준화된 오픈 프로토콜인 **MCP(Model Context Protocol)** 기술이 각광받고 있습니다[cite: 270, 271].</p>
+            </div>
+        </section>
+
+        <section class="story-section reveal">
+            <div class="card">
+                <h2 style="color: var(--hf-yellow);">4. ReAct 사이클과 Stop & Parse 메커니즘의 실체</h2>
+                <p>단순히 단계별 논리적 흐름만 타는 Chain-of-Thought(CoT)와 달리, <strong>ReAct</strong> 아키텍처는 추론 단계 사이사이에 실제 외부 환경의 도구를 실행하고 그 결과값(Observation)을 관찰하는 행동 단계를 강제로 끼워 넣습니다[cite: 306, 310, 313, 314].</p>
+
+                <div class="important-note" style="border-left-color: var(--hf-yellow);">
+                    <strong>🚨 더미 에이전트 실습을 통해 본 LLM의 '환각(Hallucination)' 문제</strong><br>
+                    Hugging Face Course의 더미 에이전트 빌드 실습 코드를 보면 알 수 있듯이, 모델에게 단순히 ReAct 포맷으로 텍스트를 생성하라고 명령한 뒤 끝까지 내버려 두면, 모델은 자신이 도구를 실행하지 않았음에도 불구하고 프롬프트 하단에 가상의 <code>Observation: 날씨가 맑음</code> 이라는 **거짓 데이터(Hallucinated Observation)**를 스스로 창작하여 계속해서 텍스트를 출력해 버리는 치명적인 결함이 발생합니다[cite: 408, 409].
                 </div>
 
-                <p style="margin-top: 1.5rem;">LLM이 텍스트를 스트리밍하며 생성하다가 <code>Action Input: [데이터]</code> 부분까지 출력하면, 시스템은 <strong>생성을 강제 중단(Stop Sequence)</strong> 시킵니다. 이후 생성된 문자열을 파싱하여 로컬 환경에서 도구를 대신 실행하고, 그 결과값을 <code>Observation:</code> 뒤에 이어붙여 LLM에게 다시 전달합니다. 목표가 달성될 때까지 이 루프는 멈추지 않습니다.</p>
+                <h3>Stop & Parse 아키텍처 파이프라인</h3>
+                <p>에이전트 프레임워크는 이 환각 현상을 방지하고 현실 세계의 코드를 구동하기 위해 정밀한 <strong>'Stop & Parse'</strong> 제어 파이프라인을 가동합니다[cite: 340].</p>
                 
-                <div class="react-box" style="margin-top: 3rem;">
+                <div style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); margin: 1.5rem 0;">
+                    <ol style="margin-left: 1.5rem; color: var(--text-secondary);">
+                        <li style="margin-bottom: 1rem;"><strong style="color: var(--text-primary);">1단계: 의도된 포맷 생성 (Structured Generation)</strong><br>LLM이 상황을 분석한 뒤 시스템 약속에 맞춰 <code>Action: 도구이름</code> 및 인자 정보가 포함된 구조화된 블록(JSON 또는 코드 블록)을 생성합니다[cite: 341].</li>
+                        <li style="margin-bottom: 1rem;"><strong style="color: var(--text-primary);">2단계: 토큰 생성 강제 중단 (Halting via Stop Sequence)</strong><br>텍스트 스트리밍 도중 도구 실행 명세가 끝나는 지점(예: <code>Observation:</code> 키워드 직전)에 도달하면, 백엔드 엔진이 작동하여 LLM의 **토큰 생성을 강제로 중단(Halt)**시키고 제어권을 파이썬 래퍼 프로그램으로 회수합니다[cite: 339, 342, 410].</li>
+                        <li style="margin-bottom: 1rem;"><strong style="color: var(--text-primary);">3단계: 문자열 파싱 및 실행 (Parsing & Execution)</strong><br>외부의 전용 파서(Parser)가 모델이 출력한 문자열을 읽어 실행할 함수와 파라미터를 추출하고, 실제 로컬 환경이나 외부 API를 통해 도구를 실행합니다[cite: 343].</li>
+                        <li style="margin-bottom: 1rem;"><strong style="color: var(--text-primary);">4단계: 컨텍스트 강제 주입 (Observation Appending)</strong><br>도구의 실제 리턴값(API 결과 로그, 에러 메시지 등)을 텍스트로 변환하여 기존 대화 시퀀스의 맨 마지막 줄에 <code>Observation: [실제결과값]</code> 형태로 강제 인젝션한 뒤, 업데이트된 프롬프트를 들고 LLM의 다음 턴을 호출합니다[cite: 370, 372, 384].</li>
+                    </ol>
+                </div>
+
+                <div class="react-box">
                     <svg viewBox="0 0 600 150" width="100%" style="max-width: 500px;">
                         <path d="M 80 75 L 300 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
                         <path d="M 300 75 L 520 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
                         <path d="M 520 75 Q 300 160 80 75" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3" stroke-dasharray="5,5"/>
-                        
                         <circle id="node-thought" class="circle-node" cx="80" cy="75" r="40" />
                         <text class="node-text" x="80" y="80">Thought</text>
-                        
                         <circle id="node-action" class="circle-node" cx="300" cy="75" r="40" />
                         <text class="node-text" x="300" y="80">Action</text>
-                        
                         <circle id="node-obs" class="circle-node" cx="520" cy="75" r="40" />
                         <text class="node-text" x="520" y="80">Obs</text>
                     </svg>
-
                     <div class="live-terminal">
-                        <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase;">Engine Trace Log</div>
+                        <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase;">Framework Stop Sequence Detector Active</div>
                         <div><span id="term-content" class="term-body"></span><span class="cursor"></span></div>
                     </div>
                 </div>
@@ -93,63 +260,60 @@ Use the following format strictly:
 
         <section class="story-section reveal">
             <div class="card">
-                <h2 style="color: var(--accent-green);">3. 최적화의 끝: Code Agent의 등장</h2>
-                <p>과거 OpenAI의 Function Calling을 비롯한 초기 에이전트 모델들은 도구를 호출할 때 <strong>JSON 스키마</strong>를 생성하도록 설계되었습니다. 하지만 이 방식은 실무 환경에서 심각한 오버헤드와 한계를 드러냈습니다.</p>
-                
+                <h2 style="color: var(--accent-green);">5. 아키텍처 대결: JSON Agent vs Code Agent</h2>
+                <p>초기의 펑션 콜링(Function Calling) 시스템이나 전통적인 LangChain 에이전트들은 주로 LLM에게 엄격한 <span class="concept-badge">JSON 포맷</span>으로 호출 규격을 생성하도록 유도했습니다[cite: 330, 332]. 그러나 Hugging Face 프레임워크 아키텍트들은 왜 **직접 실행 가능한 파이썬 코드를 뱉어내는 'Code Agent'**로의 대전환을 선언했을까요? [cite: 348]</p>
+
                 <div class="grid-2" style="margin-top: 2rem;">
                     <div>
-                        <p style="margin-bottom: 1rem;">최신 아키텍처인 <strong>Code Agent</strong>는 LLM이 직접 네이티브 Python 코드를 생성하고 실행하는 패러다임입니다.</p>
-                        <ul style="color: var(--text-secondary);">
-                            <li><strong>단일 루프 처리:</strong> JSON으로는 불가능한 `For` 반복문이나 `If` 조건문을 사용하여 여러 도구를 한 번의 호출로 엮을 수 있습니다.</li>
-                            <li><strong>변수 상태 저장:</strong> 도구 A의 출력값을 변수에 담아 도구 B의 입력값으로 바로 넘길 수 있어, 컨텍스트 윈도우 낭비를 막습니다.</li>
-                            <li><strong>명확한 디버깅:</strong> 파싱 에러가 발생했을 때, 스키마 오류를 분석하는 대신 파이썬 고유의 Traceback 로그를 LLM에게 그대로 피드백할 수 있습니다.</li>
+                        <p>자료 스니펫에서 증명하듯, Code Agent는 네이티브 인터프리터 환경을 매개로 동작하며 JSON 구조 대비 다음과 같은 기술적 압도 우위를 가집니다[cite: 331, 348].</p>
+                        <ul style="margin-top: 1rem;">
+                            <li><strong>표현력과 제어 흐름의 최적화 (Expressiveness):</strong> JSON 아키텍처는 다단계 연산이나 조건 분기문이 필요할 때마다 매번 ReAct 루프를 새로 돌며 LLM 추론 API를 호출해야 하므로 토큰 비용과 오버헤드가 폭증합니다[cite: 349]. 반면, Code Agent는 LLM이 단 한 번의 추론 패스로 내부 루프(`for`, `while`)와 조건 제어문(`if/else`)을 포함한 완전한 알고리즘 스크립트를 짜서 한 번에 실행시킬 수 있습니다[cite: 349].</li>
+                            <li><strong>상태 저장 및 모듈성 (Modularity):</strong> 코드 블록 내에서 변수(Variables)를 선언해 중간 실행 결과값을 유연하게 재사용할 수 있어 복잡한 데이터 파이프라인 처리에 탁월합니다[cite: 350].</li>
+                            <li><strong>추적 디버깅 편의성 (Debuggability):</strong> 스키마 에러 판정이 모호한 JSON과 달리, 코드 실행 중 예외가 발생하면 파이썬 고유의 명확한 <code>Traceback</code> 로그 메시지를 수집하여 LLM에게 다시 피드백 컨텍스트로 제공할 수 있으므로 자가 수정(Self-Correction) 확률이 급상승합니다[cite: 351].</li>
                         </ul>
                     </div>
                     
                     <div>
                         <div class="chart-metric">
-                            <div class="metric-header">
-                                <span>복잡한 제어 흐름(For / If) 유연성</span>
-                                <span style="color: var(--accent-blue);">Code Agent 압도적</span>
-                            </div>
-                            <div class="bar-track"><div class="bar-fill bg-json" data-width="20%"></div></div>
+                            <div class="metric-header"><span>복잡한 논리 및 반복 구조 연산력 (Expressiveness)</span><span style="color: var(--accent-blue);">Code Agent 압도</span></div>
+                            <div class="bar-track"><div class="bar-fill bg-json" data-width="25%"></div></div>
                             <div class="bar-track"><div class="bar-fill bg-code" data-width="95%"></div></div>
                         </div>
                         <div class="chart-metric">
-                            <div class="metric-header">
-                                <span>에러 발생 시 명시적 추적 (Stack Trace)</span>
-                                <span style="color: var(--accent-blue);">Code Agent 압도적</span>
-                            </div>
-                            <div class="bar-track"><div class="bar-fill bg-json" data-width="35%"></div></div>
+                            <div class="metric-header"><span>자가 수정 및 에러 스택 트레이스 추적력</span><span style="color: var(--accent-blue);">Code Agent 압도</span></div>
+                            <div class="bar-track"><div class="bar-fill bg-json" data-width="30%"></div></div>
                             <div class="bar-track"><div class="bar-fill bg-code" data-width="90%"></div></div>
                         </div>
-                        <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-secondary); justify-content: flex-end;">
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-red); border-radius: 2px;"></span> JSON Agent</span>
-                            <span style="display: flex; align-items: center; gap: 0.3rem;"><span style="display: inline-block; width: 10px; height: 10px; background: var(--accent-blue); border-radius: 2px;"></span> Code Agent</span>
+                        <div class="chart-metric">
+                            <div class="metric-header"><span>컨텍스트 윈도우 토큰 비용 절감 효율성</span><span style="color: var(--accent-blue);">Code Agent 압도</span></div>
+                            <div class="bar-track"><div class="bar-fill bg-json" data-width="40%"></div></div>
+                            <div class="bar-track"><div class="bar-fill bg-code" data-width="100%"></div></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="tech-snippet" style="margin-top: 2rem;">
-<span class="comment"># Code Agent가 생성하는 Action 예시 (Python Code)</span>
-<span class="keyword">Thought:</span> I need to fetch the data, filter it by year, and calculate the average. 
-Doing this with JSON would require 3 separate ReAct loops. 
-I will do it all in one Python block.
+                <div class="tech-box" style="margin-top: 2.5rem;">
+<span class="comment"># Code Agent가 한 번의 루프로 처리하는 다단계 연산 파이썬 코드 블록의 실체 [cite: 356]</span>
+<span class="keyword">def</span> execute_agent_step():
+    <span class="comment"># 1. 주식 데이터를 API 호출하여 가져옴 [cite: 356]</span>
+    raw_data = fetch_financial_api(ticker=<span class="string">"HuggingFace"</span>)
+    
+    <span class="comment"># 2. JSON 에이전트라면 별도 루프를 돌아야 하는 필터링/루프 가공을 내부 코드 샌드박스에서 즉시 완료 [cite: 349]</span>
+    filtered_prices = [x[<span class="string">'close'</span>] <span class="keyword">for</span> x <span class="keyword">in</span> raw_data <span class="keyword">if</span> x[<span class="string">'volume'</span>] > 5000]
+    moving_average = sum(filtered_prices) / len(filtered_prices)
+    
+    <span class="comment"># 3. 최종 연산된 값 확인 [cite: 356]</span>
+    <span class="builtin">print</span>(f<span class="string">"이동평균 계산 완료: {moving_average}"</span>) <span class="comment"># 이 출력이 Observation 필드로 회수됨 [cite: 357]</span>
 
-<span class="keyword">Action:</span>
-<span class="keyword">def</span> process_data():
-    raw_data = fetch_db_records(table=<span class="string">"sales_2026"</span>)
-    filtered = [x <span class="keyword">for</span> x <span class="keyword">in</span> raw_data <span class="keyword">if</span> x[<span class="string">'status'</span>] == <span class="string">'completed'</span>]
-    avg_value = sum(x[<span class="string">'amount'</span>] <span class="keyword">for</span> x <span class="keyword">in</span> filtered) / len(filtered)
-    <span class="keyword">return</span> f<span class="string">"The average completed sales value is {avg_value}"</span>
-
-result = process_data()
+execute_agent_step()
                 </div>
+                <p style="font-size: 0.95rem; color: var(--text-secondary);">※ 모델이 생성한 원시 코드를 그대로 실행하는 것은 보안상 위험(Prompt Injection 등)을 초래하므로, 실무 환경에서는 <code>smolagents</code>가 제공하는 디폴트 보안 보호 규격이나 완전하게 격리된 가상 머신 샌드박스 환경 내에서 실행하는 것이 표준 보안 프로토콜입니다[cite: 353, 354].</p>
             </div>
         </section>
 
-        <div class="reveal text-center" style="margin-top: 5rem;">
-            <a href="../index.html" style="color: var(--hf-yellow); text-decoration: none; font-size: 1.1rem; font-weight: bold;">← 커리큘럼 홈으로 돌아가기</a>
+        <div class="reveal text-center" style="margin-top: 6rem;">
+            <a href="../index.html" style="color: var(--hf-yellow); text-decoration: none; font-size: 1.1rem; font-weight: bold; display: block; margin-bottom: 1rem;">← 메인 커리큘럼 로드맵 홈화면 이동</a>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">지 지식의 기본 뼈대를 마스터했습니다. 다음 강의에서 코드 구현 단계로 넘어갑니다.</p>
         </div>
     </div>
 
