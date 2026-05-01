@@ -1,83 +1,70 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // 1. Scroll Reveal Animation (공통)
+    // 1. Dynamic Scroll Reveal Configuration
     const revealElements = document.querySelectorAll('.reveal');
-    const chartFills = document.querySelectorAll('.bar-fill');
-
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('active');
                 
-                // 차트 섹션 진입 시 막대그래프 애니메이션 트리거
-                if (entry.target.querySelector('.bar-fill')) {
-                    const fills = entry.target.querySelectorAll('.bar-fill');
-                    fills.forEach(bar => {
-                        bar.style.width = bar.getAttribute('data-width');
-                    });
-                }
-                // 한 번 실행 후 관찰 해제 (원할 경우 유지 가능)
-                // observer.unobserve(entry.target); 
+                // 해당 카드 내부에 데이터 그래프 바가 존재하면 폭 강제 설정
+                const bars = entry.target.querySelectorAll('.bar-fill');
+                bars.forEach(bar => {
+                    bar.style.width = bar.getAttribute('data-width');
+                });
             }
         });
-    }, { threshold: 0.15 });
-
+    }, { threshold: 0.12 });
     revealElements.forEach(el => observer.observe(el));
 
-    // 2. ReAct Loop 시뮬레이터 (lecture-01.html 전용)
-    const termBody = document.getElementById('term-content');
-    if (termBody) {
+    // 2. ReAct Loop Execution Simulator Logic
+    const termContent = document.getElementById('term-content');
+    if (termContent) {
         const nodes = {
             thought: document.getElementById('node-thought'),
             action: document.getElementById('node-action'),
             obs: document.getElementById('node-obs')
         };
-        
-        const logs = [
-            { id: 'thought', text: "[Thought] 데이터 전처리를 위해 Pandas 라이브러리 사용 구조를 기획합니다." },
-            { id: 'action', text: "[Action] Python 인터프리터에 df.groupby() 연산 코드를 생성하여 실행합니다." },
-            { id: 'obs', text: "[Observation] 실행 성공. 그룹화된 데이터 프레임의 헤더를 반환받았습니다." }
+
+        const steps = [
+            { id: 'thought', text: ">> [Thought Engine] 목표: '런던 날씨 파악 및 가공'. 내부 추론 결과, 현재 지식 소스(Knowledge Cut-off) 외부의 실시간 지표이므로 연동된 외부 API 도구 레이어인 'get_weather' 함수를 호출하기로 결정함." },
+            { id: 'action', text: ">> [Action Pipeline] 명세 포맷 검증 완료. 시스템 정지 토큰(Stop Sequence)을 발동하여 LLM 토큰 출력을 멈추고 파서(Parser)를 가동함. 호출 스트림: get_weather(location='London') 실행." },
+            { id: 'obs', text: ">> [Observation Field] 외부 날씨 API 서버 응답 수신 성공. 환경 데이터 확보: {'weather': 'sunny', 'temp': 'low'}. 해당 리턴 로그를 대화형 프롬프트 문자열 최하단에 강제 강제 주입(Injection)함." }
         ];
 
-        let currentIdx = 0;
+        let loopIdx = 0;
         let charIdx = 0;
-        let isTyping = false;
+        let isWriting = false;
 
-        function typeWriter(text, callback) {
-            isTyping = true;
-            termBody.innerHTML = '';
+        function renderText(targetText, onComplete) {
+            isWriting = true;
+            termContent.innerHTML = '';
             charIdx = 0;
-            
-            function type() {
-                if (charIdx < text.length) {
-                    termBody.innerHTML += text.charAt(charIdx);
+
+            function write() {
+                if (charIdx < targetText.length) {
+                    termContent.innerHTML += targetText.charAt(charIdx);
                     charIdx++;
-                    setTimeout(type, 30); // 타이핑 속도
+                    setTimeout(write, 20);
                 } else {
-                    isTyping = false;
-                    setTimeout(callback, 2000); // 출력 완료 후 대기 시간
+                    isWriting = false;
+                    setTimeout(onComplete, 2500); // 웅장한 가독성을 위한 지연
                 }
             }
-            type();
+            write();
         }
 
-        function runLoop() {
-            if (isTyping) return;
-
-            // 이전 활성화 노드 리셋
+        function triggerNextStep() {
+            if (isWriting) return;
             Object.values(nodes).forEach(n => n.classList.remove('active'));
             
-            // 현재 노드 활성화 및 타이핑 시작
-            const step = logs[currentIdx];
-            nodes[step.id].classList.add('active');
+            const currentStep = steps[loopIdx];
+            nodes[currentStep.id].classList.add('active');
             
-            typeWriter(step.text, () => {
-                currentIdx = (currentIdx + 1) % logs.length;
-                runLoop(); // 다음 스텝 무한 루프
+            renderText(currentStep.text, () => {
+                loopIdx = (loopIdx + 1) % steps.length;
+                triggerNextStep();
             });
         }
-
-        // 초기 실행
-        setTimeout(runLoop, 1000);
+        setTimeout(triggerNextStep, 800);
     }
 });
