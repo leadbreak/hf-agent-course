@@ -1,2 +1,3 @@
 # hf-agent-course
-https://huggingface.co/learn/agents-course/unit0/introduction
+
+[Hugging Face - Agent course](https://huggingface.co/learn/agents-course/unit0/introduction)
