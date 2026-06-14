@@ -1,0 +1,6 @@
+smolagents>=1.1.0
+duckduckgo-search>=6.2.1
+pandas
+requests
+gradio
+ddgs
