@@ -31,13 +31,13 @@ def predict(question: str) -> str:
         print(f"❌ Inference Error: {e}")
         return "unknown"
 
-# gradio_client가 인식할 수 있도록 정석 Interface 컴포넌트 구성
+# TypeError 해결: gr.Textbox 내부에 존재하지 않는 name 인자 완전 제거
 demo = gr.Interface(
     fn=predict,
-    inputs=gr.Textbox(label="Question", name="question"),
-    outputs=gr.Textbox(label="Answer", name="answer")
+    inputs=gr.Textbox(label="Question"),
+    outputs=gr.Textbox(label="Answer")
 )
 
 if __name__ == "__main__":
-    # 장기 연산을 위해 queue()를 유지하되, gradio-client를 통해 통신 장벽을 허뭅니다.
+    # 내부 큐 프로토콜을 활성화하여 404 라우팅 오류 없이 gradio-client 통신 인터페이스 동기화
     demo.queue().launch(server_name="0.0.0.0", server_port=7860, share=True)
