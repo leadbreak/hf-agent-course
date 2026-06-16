@@ -1,6 +1,12 @@
-smolagents>=1.1.0
-duckduckgo-search>=6.2.1
 pandas
 requests
+markdownify
+smolagents>=1.1.0
+transformers>=4.48.0
+accelerate>=1.2.0
+duckduckgo-search>=6.2.1
+markdownify
 gradio
+gradio-client
+torch
 ddgs

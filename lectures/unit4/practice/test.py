@@ -1,36 +1,37 @@
 import os
 import requests
 import pandas as pd
+from gradio_client import Client
 
-# --- 채점 서버 및 로컬 에이전트 기본값 설정 ---
 QUESTIONS_URL = "https://agents-course-unit4-scoring.hf.space/questions"
 DEFAULT_LOCAL_URL = "http://localhost:7860"
 
 def main():
-    # 환경 변수에서 로컬 에이전트 서버 주소 로드 (없으면 localhost:7860 사용)
-    local_agent_base = os.getenv("LOCAL_AGENT_URL", DEFAULT_LOCAL_URL).rstrip("/")
-    local_agent_predict_url = f"{local_agent_base}/api/predict"
-
+    # 환경 변수에 LOCAL_AGENT_URL이 없으면 로컬 기본 포트 자동 추적
+    local_agent_url = os.getenv("LOCAL_AGENT_URL", DEFAULT_LOCAL_URL).rstrip("/")
+    
     print("=" * 80)
-    print(f"📡 타겟 에이전트 서버 엔드포인트: {local_agent_predict_url}")
+    print(f"📡 Connecting to Agent Server via Gradio Client: {local_agent_url}")
     print("=" * 80)
 
-    # 1. 채점 서버로부터 실시간 GAIA 평가 문항 다운로드
-    print(f"📥 채점 서버에서 문항 다운로드 중: {QUESTIONS_URL}")
+    print(f"📥 Fetching tasks from scoring server...")
     try:
         response = requests.get(QUESTIONS_URL, timeout=15)
         response.raise_for_status()
         questions_data = response.json()
-        print(f"✅ 총 {len(questions_data)}개의 테스트 문항을 확보했습니다.\n")
+        print(f"✅ Loaded {len(questions_data)} benchmarks.\n")
     except Exception as e:
-        print(f"❌ 문항 다운로드 실패: {e}")
+        print(f"❌ Failed to fetch questions: {e}")
         return
 
-    # 2. 로컬 agent.py 서버로 질의 릴레이 루프 가동
-    results_log = []
-    print("🚀 로컬 에이전트 서버 기반 벤치마크 테스트를 시작합니다.")
-    print("-" * 80)
+    # Gradio 내장 프로토콜 추적 파싱 클라이언트 가동
+    try:
+        client = Client(local_agent_url)
+    except Exception as e:
+        print(f"❌ Connection Refused to Gradio Server: {e}")
+        return
 
+    results_log = []
     for idx, item in enumerate(questions_data, 1):
         task_id = item.get("task_id")
         question_text = item.get("question")
@@ -38,26 +39,16 @@ def main():
             continue
 
         print(f"[{idx}/{len(questions_data)}] Task ID: {task_id}")
-        print(f"📋 질문: {question_text[:90]}...")
+        print(f"📋 Question: {question_text[:70]}...")
 
         try:
-            # 구동 중인 agent.py(Gradio 인터페이스) 규격에 맞춰 POST 요청
-            res = requests.post(
-                local_agent_predict_url,
-                json={"data": [question_text]},
-                timeout=300  # 에이전트 코드 컴파일 및 서핑 자율 예산 시간 확보
-            )
-            
-            if res.status_code == 200:
-                predicted_answer = res.json()["data"][0]
-                print(f"➡️ 도출된 정답: {predicted_answer}")
-            else:
-                print(f"⚠️ 에이전트 서버 응답 실패 (HTTP {res.status_code})")
-                predicted_answer = "unknown"
-                
+            # 내부 경로 버전을 타지 않고 객체 지향으로 결과 직결 매핑
+            res = client.predict(question=question_text, api_name="/predict")
+            predicted_answer = str(res).strip()
+            print(f"➡️ Derived Answer: {predicted_answer}")
         except Exception as e:
-            print(f"❌ 에이전트 서버 통신 실패 (Connection Refused 또는 Timeout): {e}")
-            predicted_answer = "CONNECTION_ERROR"
+            print(f"❌ Inference/Tunnel Error: {e}")
+            predicted_answer = "ERROR"
 
         results_log.append({
             "Task ID": task_id,
@@ -66,15 +57,9 @@ def main():
         })
         print("-" * 80)
 
-    # 3. 결과 분석용 로컬 CSV 파일 덤프
     df = pd.DataFrame(results_log)
-    output_csv = "gaia_agent_local_test_results.csv"
-    df.to_csv(output_csv, index=False, encoding="utf-8-sig")
-    
-    print("\n" + "=" * 80)
-    print("🎉 에이전트 서버 릴레이 테스트 완료!")
-    print(f"💾 결과 데이터가 '{output_csv}' 파일로 저장되었습니다.")
-    print("=" * 80)
+    df.to_csv("gaia_agent_local_test_results.csv", index=False, encoding="utf-8-sig")
+    print("\n✅ 로컬 테스트 런 완료. 결과가 gaia_agent_local_test_results.csv 에 저장되었습니다.")
 
 if __name__ == "__main__":
     main()
