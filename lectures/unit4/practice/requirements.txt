@@ -1,5 +1,6 @@
 pandas
 requests
+beautifulsoup4
 markdownify
 smolagents>=1.1.0
 transformers>=4.48.0
@@ -10,3 +11,5 @@ gradio
 gradio-client
 torch
 ddgs
+openai
+openpyxl
