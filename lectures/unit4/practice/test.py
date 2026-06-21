@@ -1,65 +1,188 @@
+import argparse
+import json
 import os
-import requests
+from pathlib import Path
+from typing import Iterable
+
 import pandas as pd
+import requests
 from gradio_client import Client
 
 QUESTIONS_URL = "https://agents-course-unit4-scoring.hf.space/questions"
+SUBMIT_URL = "https://agents-course-unit4-scoring.hf.space/submit"
+ANSWER_KEY_URL = "https://huggingface.co/spaces/bstraehle/gaia/resolve/main/files/gaia_validation.jsonl"
 DEFAULT_LOCAL_URL = "http://localhost:7860"
+DEFAULT_CSV_PATH = "gaia_agent_local_test_results.csv"
 
-def main():
-    # 환경 변수에 LOCAL_AGENT_URL이 없으면 로컬 기본 포트 자동 추적
-    local_agent_url = os.getenv("LOCAL_AGENT_URL", DEFAULT_LOCAL_URL).rstrip("/")
-    
+
+def normalize_for_compare(value: object) -> str:
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+
+    try:
+        number = float(text.replace(",", ""))
+        if number.is_integer():
+            return str(int(number))
+        return f"{number:.10f}".rstrip("0").rstrip(".")
+    except ValueError:
+        pass
+
+    return " ".join(text.lower().split())
+
+
+def is_correct_answer(predicted: object, actual: object) -> bool:
+    return normalize_for_compare(predicted) == normalize_for_compare(actual)
+
+
+def build_answers_payload(rows: Iterable[dict]) -> list[dict[str, str]]:
+    payload = []
+    for row in rows:
+        payload.append(
+            {
+                "task_id": str(row["Task ID"]),
+                "submitted_answer": str(row.get("Predicted Answer", "unknown")).strip() or "unknown",
+            }
+        )
+    return payload
+
+
+def fetch_questions() -> list[dict]:
+    response = requests.get(QUESTIONS_URL, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def load_answer_key(cache_path: str = ".agent2_cache/gaia_validation_answers.jsonl") -> dict[str, str]:
+    path = Path(cache_path)
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        response = requests.get(ANSWER_KEY_URL, timeout=30)
+        response.raise_for_status()
+        text = response.text
+        path.write_text(text, encoding="utf-8")
+
+    answer_key = {}
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        item = json.loads(line)
+        task_id = str(item.get("task_id", "")).strip()
+        if task_id:
+            answer_key[task_id] = str(item.get("Final answer", "")).strip()
+    return answer_key
+
+
+def submit_answers(rows: list[dict], hf_username: str, agent_space_url: str) -> dict:
+    request_data = {
+        "username": hf_username,
+        "agent_code": agent_space_url,
+        "answers": build_answers_payload(rows),
+    }
+    response = requests.post(
+        SUBMIT_URL,
+        json=request_data,
+        headers={"Content-Type": "application/json"},
+        timeout=60,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def run_local_evaluation(local_agent_url: str) -> list[dict]:
     print("=" * 80)
     print(f"📡 Connecting to Agent Server via Gradio Client: {local_agent_url}")
     print("=" * 80)
 
-    print(f"📥 Fetching tasks from scoring server...")
-    try:
-        response = requests.get(QUESTIONS_URL, timeout=15)
-        response.raise_for_status()
-        questions_data = response.json()
-        print(f"✅ Loaded {len(questions_data)} benchmarks.\n")
-    except Exception as e:
-        print(f"❌ Failed to fetch questions: {e}")
-        return
+    print("📥 Fetching tasks and local answer key...")
+    questions_data = fetch_questions()
+    answer_key = load_answer_key()
+    print(f"✅ Loaded {len(questions_data)} benchmarks.")
+    print(f"✅ Loaded {len(answer_key)} answer-key rows for local scoring.\n")
 
-    # Gradio 내장 프로토콜 추적 파싱 클라이언트 가동
-    try:
-        client = Client(local_agent_url)
-    except Exception as e:
-        print(f"❌ Connection Refused to Gradio Server: {e}")
-        return
-
+    client = Client(local_agent_url)
     results_log = []
+
     for idx, item in enumerate(questions_data, 1):
         task_id = item.get("task_id")
         question_text = item.get("question")
         if not task_id or question_text is None:
             continue
 
+        actual_answer = answer_key.get(str(task_id), "")
         print(f"[{idx}/{len(questions_data)}] Task ID: {task_id}")
-        print(f"📋 Question: {question_text[:70]}...")
+        print(f"📋 Question: {question_text[:90].replace(chr(10), ' ')}...")
 
         try:
-            # 내부 경로 버전을 타지 않고 객체 지향으로 결과 직결 매핑
-            res = client.predict(question=question_text, api_name="/predict")
-            predicted_answer = str(res).strip()
-            print(f"➡️ Derived Answer: {predicted_answer}")
-        except Exception as e:
-            print(f"❌ Inference/Tunnel Error: {e}")
+            result = client.predict(question=question_text, api_name="/predict")
+            predicted_answer = str(result).strip()
+        except Exception as exc:
+            print(f"❌ Inference/Tunnel Error: {exc}")
             predicted_answer = "ERROR"
 
-        results_log.append({
-            "Task ID": task_id,
-            "Question": question_text,
-            "Predicted Answer": predicted_answer
-        })
+        correct = is_correct_answer(predicted_answer, actual_answer)
+        status = "✅ CORRECT" if correct else "❌ WRONG"
+        print(f"➡️ Predicted: {predicted_answer}")
+        print(f"🎯 Actual   : {actual_answer}")
+        print(f"📊 Local    : {status}")
         print("-" * 80)
 
-    df = pd.DataFrame(results_log)
-    df.to_csv("gaia_agent_local_test_results.csv", index=False, encoding="utf-8-sig")
-    print("\n✅ 로컬 테스트 런 완료. 결과가 gaia_agent_local_test_results.csv 에 저장되었습니다.")
+        results_log.append(
+            {
+                "Task ID": task_id,
+                "Question": question_text,
+                "Predicted Answer": predicted_answer,
+                "Actual Answer": actual_answer,
+                "Local Correct": correct,
+            }
+        )
+
+    return results_log
+
+
+def print_local_summary(rows: list[dict]) -> None:
+    correct_count = sum(1 for row in rows if row["Local Correct"])
+    total = len(rows)
+    accuracy = (correct_count / total * 100) if total else 0.0
+    print("\n" + "=" * 80)
+    print(f"📊 Local Score: {accuracy:.1f}% ({correct_count}/{total})")
+    print("=" * 80)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run local GAIA agent evaluation and optionally submit to HF.")
+    parser.add_argument("--local-url", default=os.getenv("LOCAL_AGENT_URL", DEFAULT_LOCAL_URL).rstrip("/"))
+    parser.add_argument("--csv", default=DEFAULT_CSV_PATH)
+    parser.add_argument("--submit", action="store_true", default=os.getenv("SUBMIT_TO_HF", "0") == "1")
+    parser.add_argument("--hf-username", default=os.getenv("HF_USERNAME", "QscarKIM"))
+    parser.add_argument(
+        "--agent-space-url",
+        default=os.getenv(
+            "AGENT_SPACE_URL",
+            "https://huggingface.co/spaces/QscarKIM/Final_Assignment_Template/tree/main",
+        ),
+    )
+    args = parser.parse_args()
+
+    rows = run_local_evaluation(args.local_url)
+    df = pd.DataFrame(rows)
+    df.to_csv(args.csv, index=False, encoding="utf-8-sig")
+    print(f"\n✅ 로컬 테스트 런 완료. 결과가 {args.csv} 에 저장되었습니다.")
+    print_local_summary(rows)
+
+    if args.submit:
+        print(f"\n🚀 Submitting {len(rows)} answers to Hugging Face scoring server...")
+        try:
+            result = submit_answers(rows, args.hf_username, args.agent_space_url)
+            print("🏅 Official submission response:")
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        except Exception as exc:
+            print(f"❌ Official submission failed: {exc}")
+    else:
+        print("\nℹ️ 공식 제출은 건너뜁니다. 제출하려면 `python test.py --submit` 또는 `SUBMIT_TO_HF=1`을 사용하세요.")
+
 
 if __name__ == "__main__":
     main()
