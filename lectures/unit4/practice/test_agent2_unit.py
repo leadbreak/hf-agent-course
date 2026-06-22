@@ -19,6 +19,22 @@ class Agent2FallbackTests(unittest.TestCase):
 
         self.assertEqual(model.call_count, 1)
 
+    def test_predict_writes_trace_file_for_direct_answer(self):
+        question = '.rewsna eht sa "tfel" drow eht fo etisoppo eht etirw ,ecnetnes siht dnatsrednu uoy fI'
+        trace_path = agent2._trace_path(question)
+        if trace_path.exists():
+            trace_path.unlink()
+
+        with patch.dict("os.environ", {"AGENT2_DISABLE_ANSWER_CACHE": "1"}):
+            self.assertEqual(agent2.predict(question), "Right")
+
+        trace = agent2._load_json(trace_path, {})
+        self.assertEqual(trace["answer"], "Right")
+        stages = [event["stage"] for event in trace["events"]]
+        self.assertIn("strategy", stages)
+        self.assertIn("direct_handler", stages)
+        self.assertIn("finalize", stages)
+
 
 class TestRunnerHelpers(unittest.TestCase):
     def test_answer_comparison_normalizes_case_and_number_format(self):
@@ -41,6 +57,19 @@ class TestRunnerHelpers(unittest.TestCase):
                 {"task_id": "task-2", "submitted_answer": "B"},
             ],
         )
+
+    def test_trace_formatter_summarizes_events(self):
+        trace = {
+            "events": [
+                {"stage": "strategy", "status": "start", "message": "Route by task type"},
+                {"stage": "tool", "status": "success", "message": "Used web_search"},
+            ]
+        }
+
+        rendered = local_test.format_trace(trace)
+
+        self.assertIn("strategy", rendered)
+        self.assertIn("Used web_search", rendered)
 
 
 if __name__ == "__main__":

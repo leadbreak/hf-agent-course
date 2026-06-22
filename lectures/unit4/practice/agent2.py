@@ -40,6 +40,7 @@ LLM_API_KEY = (
 )
 CACHE_DIR = Path(os.getenv("AGENT2_CACHE_DIR", ".agent2_cache"))
 FILES_DIR = CACHE_DIR / "files"
+TRACES_DIR = CACHE_DIR / "traces"
 RESULT_CACHE_PATH = CACHE_DIR / "answers.json"
 QUESTIONS_CACHE_PATH = CACHE_DIR / "questions.json"
 
@@ -60,6 +61,7 @@ PUBLIC_VALIDATION_ANSWERS_URL = (
 def _ensure_cache_dirs() -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     FILES_DIR.mkdir(parents=True, exist_ok=True)
+    TRACES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _load_json(path: Path, default: Any) -> Any:
@@ -82,6 +84,55 @@ def _normalize_question(question: str) -> str:
 
 def _cache_key(question: str) -> str:
     return hashlib.sha256(_normalize_question(question).encode("utf-8")).hexdigest()
+
+
+_ACTIVE_TRACE: dict[str, Any] | None = None
+
+
+def _trace_path(question: str) -> Path:
+    return TRACES_DIR / f"{_cache_key(question)}.json"
+
+
+def _new_trace(question: str, record: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        "question": question,
+        "task_id": str((record or {}).get("task_id") or ""),
+        "file_name": str((record or {}).get("file_name") or ""),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "answer": "",
+        "events": [],
+    }
+
+
+def _trace_event(
+    trace: dict[str, Any] | None,
+    stage: str,
+    status: str,
+    message: str,
+    **details: Any,
+) -> None:
+    target = trace if trace is not None else _ACTIVE_TRACE
+    if target is None:
+        return
+
+    event = {
+        "time": round(time.time(), 3),
+        "stage": stage,
+        "status": status,
+        "message": message,
+    }
+    if details:
+        event["details"] = {
+            key: value
+            for key, value in details.items()
+            if value is not None and value != ""
+        }
+    target.setdefault("events", []).append(event)
+
+
+def _save_trace(question: str, trace: dict[str, Any]) -> None:
+    trace["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    _save_json(_trace_path(question), trace)
 
 
 def _fetch_questions() -> list[dict[str, Any]]:
@@ -109,13 +160,14 @@ def _question_record(question: str) -> dict[str, Any] | None:
     return None
 
 
-def _download_attachment(file_name: str, task_id: str = "") -> Path | None:
+def _download_attachment(file_name: str, task_id: str = "", trace: dict[str, Any] | None = None) -> Path | None:
     if not file_name:
         return None
 
     _ensure_cache_dirs()
     target = FILES_DIR / Path(file_name).name
     if target.exists() and target.stat().st_size > 0:
+        _trace_event(trace, "attachment", "cache_hit", "Using cached attachment file", file=str(target))
         return target
 
     local_roots = [
@@ -130,6 +182,7 @@ def _download_attachment(file_name: str, task_id: str = "") -> Path | None:
         candidate = root / file_name
         if candidate.exists():
             target.write_bytes(candidate.read_bytes())
+            _trace_event(trace, "attachment", "success", "Copied attachment from local directory", file=str(candidate))
             return target
 
     headers = {"Authorization": f"Bearer {os.getenv('HF_TOKEN', '')}"} if os.getenv("HF_TOKEN") else {}
@@ -138,9 +191,18 @@ def _download_attachment(file_name: str, task_id: str = "") -> Path | None:
             response = requests.get(f"{SCORING_API_URL}/files/{task_id}", headers=headers, timeout=45)
             if response.status_code == 200 and response.content:
                 target.write_bytes(response.content)
+                _trace_event(trace, "attachment", "success", "Downloaded attachment from scoring API", task_id=task_id)
                 return target
+            _trace_event(
+                trace,
+                "attachment",
+                "miss",
+                "Scoring API did not return an attachment",
+                task_id=task_id,
+                status_code=response.status_code,
+            )
         except Exception:
-            pass
+            _trace_event(trace, "attachment", "error", "Scoring API attachment download failed", task_id=task_id)
 
     for template in PUBLIC_FILE_MIRRORS:
         url = template.format(file_name=file_name)
@@ -148,9 +210,11 @@ def _download_attachment(file_name: str, task_id: str = "") -> Path | None:
             response = requests.get(url, headers=headers, timeout=45)
             if response.status_code == 200 and response.content:
                 target.write_bytes(response.content)
+                _trace_event(trace, "attachment", "success", "Downloaded attachment from public mirror", url=url)
                 return target
         except Exception:
             continue
+    _trace_event(trace, "attachment", "failed", "Could not locate attachment", file_name=file_name)
     return None
 
 
@@ -181,8 +245,9 @@ def _load_public_validation_answer_key() -> dict[str, str]:
     return answers
 
 
-def _run_python_file(path: Path) -> str | None:
+def _run_python_file(path: Path, trace: dict[str, Any] | None = None) -> str | None:
     path = path.resolve()
+    started = time.perf_counter()
     try:
         result = subprocess.run(
             [sys.executable, str(path)],
@@ -192,19 +257,40 @@ def _run_python_file(path: Path) -> str | None:
             timeout=int(os.getenv("AGENT2_CODE_TIMEOUT", "90")),
             check=False,
         )
-    except Exception:
+    except Exception as exc:
+        _trace_event(trace, "tool", "error", "Python file execution failed", tool="python", error=str(exc))
         return None
 
     output = (result.stdout or result.stderr).strip()
     if not output:
+        _trace_event(
+            trace,
+            "tool",
+            "failed",
+            "Python file produced no output",
+            tool="python",
+            return_code=result.returncode,
+            seconds=round(time.perf_counter() - started, 3),
+        )
         return None
+    _trace_event(
+        trace,
+        "tool",
+        "success",
+        "Executed attached Python file and used the last output line",
+        tool="python",
+        return_code=result.returncode,
+        seconds=round(time.perf_counter() - started, 3),
+        last_line=output.splitlines()[-1].strip()[:200],
+    )
     return output.splitlines()[-1].strip()
 
 
-def _sum_excel_food_sales(path: Path) -> str | None:
+def _sum_excel_food_sales(path: Path, trace: dict[str, Any] | None = None) -> str | None:
     try:
         sheets = pd.read_excel(path, sheet_name=None)
-    except Exception:
+    except Exception as exc:
+        _trace_event(trace, "tool", "error", "Excel parsing failed", tool="pandas", error=str(exc))
         return None
 
     total = 0.0
@@ -223,11 +309,21 @@ def _sum_excel_food_sales(path: Path) -> str | None:
                 found = True
 
     if not found:
+        _trace_event(trace, "tool", "failed", "No numeric food columns found in Excel", tool="pandas")
         return None
+    _trace_event(
+        trace,
+        "tool",
+        "success",
+        "Parsed Excel and summed non-drink numeric columns",
+        tool="pandas",
+        sheets=", ".join(sheets.keys()),
+        total=f"{total:.2f}",
+    )
     return f"{total:.2f}"
 
 
-def _transcribe_audio(path: Path) -> str | None:
+def _transcribe_audio(path: Path, trace: dict[str, Any] | None = None) -> str | None:
     try:
         from faster_whisper import WhisperModel
 
@@ -235,8 +331,10 @@ def _transcribe_audio(path: Path) -> str | None:
         model = WhisperModel(model_name, device=os.getenv("AGENT2_WHISPER_DEVICE", "auto"))
         segments, _ = model.transcribe(str(path), beam_size=5)
         transcript = " ".join(segment.text.strip() for segment in segments).strip()
+        _trace_event(trace, "tool", "success", "Transcribed audio with faster-whisper", tool="faster-whisper")
         return transcript or None
     except Exception:
+        _trace_event(trace, "tool", "miss", "faster-whisper unavailable or failed", tool="faster-whisper")
         pass
 
     audio_base_url = (
@@ -258,18 +356,22 @@ def _transcribe_audio(path: Path) -> str | None:
                 model=os.getenv("AGENT2_AUDIO_MODEL", "whisper"),
                 file=audio,
             )
-        return getattr(result, "text", None)
-    except Exception:
+        transcript = getattr(result, "text", None)
+        _trace_event(trace, "tool", "success", "Transcribed audio with local ASR endpoint", tool="local-asr")
+        return transcript
+    except Exception as exc:
+        _trace_event(trace, "tool", "error", "Local ASR endpoint failed", tool="local-asr", error=str(exc))
         return None
 
 
-def _ask_vision_model(question: str, image_path: Path) -> str | None:
+def _ask_vision_model(question: str, image_path: Path, trace: dict[str, Any] | None = None) -> str | None:
     base_url = (
         os.getenv("AGENT2_LOCAL_VISION_BASE_URL")
         or os.getenv("LOCAL_VISION_BASE_URL")
         or ""
     ).rstrip("/")
     if not base_url:
+        _trace_event(trace, "tool", "miss", "No local VLM endpoint configured", tool="local-vlm")
         return None
     try:
         import base64
@@ -295,50 +397,60 @@ def _ask_vision_model(question: str, image_path: Path) -> str | None:
                 }
             ],
         )
+        _trace_event(trace, "tool", "success", "Asked local VLM endpoint about attached image", tool="local-vlm")
         return response.choices[0].message.content
-    except Exception:
+    except Exception as exc:
+        _trace_event(trace, "tool", "error", "Local VLM endpoint failed", tool="local-vlm", error=str(exc))
         return None
 
 
-def _direct_answer(question: str, record: dict[str, Any] | None) -> str | None:
+def _direct_answer(question: str, record: dict[str, Any] | None, trace: dict[str, Any] | None = None) -> str | None:
     q = question.strip()
     q_lower = q.lower()
 
     reversed_q = q[::-1].lower()
     if "opposite of the word" in reversed_q and '"left"' in reversed_q:
+        _trace_event(trace, "direct_handler", "success", "Solved reversed-string instruction without LLM")
         return "Right"
 
     if "not commutative" in q_lower and "|*|" in q:
-        return _commutativity_counterexample_subset(q)
+        answer = _commutativity_counterexample_subset(q)
+        _trace_event(trace, "direct_handler", "success", "Checked table symmetry for commutativity", answer=answer)
+        return answer
 
     if "botany" in q_lower and "botanical fruits" in q_lower:
-        return _botanical_vegetables(q)
+        answer = _botanical_vegetables(q)
+        _trace_event(trace, "direct_handler", "success", "Filtered grocery items using botanical-fruit rule", answer=answer)
+        return answer
 
     file_name = str((record or {}).get("file_name") or "")
     task_id = str((record or {}).get("task_id") or "")
-    path = _download_attachment(file_name, task_id) if file_name else None
+    path = _download_attachment(file_name, task_id, trace) if file_name else None
     if not path:
+        _trace_event(trace, "direct_handler", "miss", "No deterministic handler matched before LLM fallback")
         return None
 
     suffix = path.suffix.lower()
     if suffix == ".py" and "numeric output" in q_lower:
-        return _run_python_file(path)
+        return _run_python_file(path, trace)
 
     if suffix in {".xlsx", ".xls"} and "food" in q_lower and "drink" in q_lower:
-        return _sum_excel_food_sales(path)
+        return _sum_excel_food_sales(path, trace)
 
     if suffix in {".mp3", ".wav", ".m4a"}:
-        transcript = _transcribe_audio(path)
+        transcript = _transcribe_audio(path, trace)
         if transcript:
-            return _answer_from_transcript(q, transcript)
+            return _answer_from_transcript(q, transcript, trace)
 
     if suffix in {".png", ".jpg", ".jpeg", ".webp"}:
-        answer = _ask_vision_model(q, path)
+        answer = _ask_vision_model(q, path, trace)
         if answer:
             return answer
         if os.getenv("AGENT2_ALLOW_PUBLIC_VALIDATION_FALLBACK", "0") == "1" and task_id:
+            _trace_event(trace, "answer_key_fallback", "success", "Used public validation answer key for image task")
             return _load_public_validation_answer_key().get(task_id)
 
+    _trace_event(trace, "direct_handler", "miss", "Attachment type had no successful deterministic handler", suffix=suffix)
     return None
 
 
@@ -394,13 +506,15 @@ def _botanical_vegetables(question: str) -> str | None:
     return ", ".join(sorted(vegetables, key=str.lower)) if vegetables else None
 
 
-def _answer_from_transcript(question: str, transcript: str) -> str | None:
+def _answer_from_transcript(question: str, transcript: str, trace: dict[str, Any] | None = None) -> str | None:
     q_lower = question.lower()
     if "page numbers" in q_lower:
         numbers = sorted({int(num) for num in re.findall(r"\b\d{2,4}\b", transcript)})
+        _trace_event(trace, "direct_handler", "success", "Extracted page numbers from audio transcript", numbers=numbers)
         return ", ".join(str(num) for num in numbers) if numbers else None
 
     if "ingredients" in q_lower:
+        _trace_event(trace, "llm_fallback", "start", "Using LLM to extract ingredient names from audio transcript")
         return _ask_plain_llm(
             "Extract only the filling ingredient names from this transcript. "
             "Return a comma separated, alphabetized list. No measurements.\n\n"
@@ -420,6 +534,7 @@ class CachedSearchTool(Tool):
         cache = _load_json(cache_path, {})
         key = _cache_key(query)
         if key in cache:
+            _trace_event(None, "tool", "cache_hit", "Reused cached web search results", tool="web_search", query=query[:160])
             return cache[key]
 
         try:
@@ -430,8 +545,18 @@ class CachedSearchTool(Tool):
                 f"{idx + 1}. {row.get('title', '')}\nURL: {row.get('href', '')}\n{row.get('body', '')}"
                 for idx, row in enumerate(rows)
             )
+            _trace_event(
+                None,
+                "tool",
+                "success",
+                "Ran web search",
+                tool="web_search",
+                query=query[:160],
+                results=len(rows),
+            )
         except Exception as exc:
             output = f"Search error: {exc}"
+            _trace_event(None, "tool", "error", "Web search failed", tool="web_search", query=query[:160], error=str(exc))
 
         cache[key] = output[:12000]
         _save_json(cache_path, cache)
@@ -449,6 +574,7 @@ class SafeVisitWebpageTool(Tool):
         cache = _load_json(cache_path, {})
         key = _cache_key(url)
         if key in cache:
+            _trace_event(None, "tool", "cache_hit", "Reused cached webpage content", tool="visit_webpage", url=url[:240])
             return cache[key]
 
         headers = {
@@ -463,8 +589,18 @@ class SafeVisitWebpageTool(Tool):
                 tag.decompose()
             text = markdownify(str(soup), heading_style="ATX")
             output = re.sub(r"\n{3,}", "\n\n", text)
+            _trace_event(
+                None,
+                "tool",
+                "success",
+                "Fetched and cleaned webpage",
+                tool="visit_webpage",
+                url=url[:240],
+                chars=len(output),
+            )
         except Exception as exc:
             output = f"Error fetching webpage: {exc}"
+            _trace_event(None, "tool", "error", "Webpage fetch failed", tool="visit_webpage", url=url[:240], error=str(exc))
 
         cache[key] = output[: int(os.getenv("AGENT2_MAX_PAGE_CHARS", "14000"))]
         _save_json(cache_path, cache)
@@ -479,6 +615,7 @@ _MODEL_LOAD_ERROR: str | None = None
 def _discover_local_llm_base_url() -> tuple[str, str]:
     configured = LLM_BASE_URL
     if configured:
+        _trace_event(None, "model", "configured", "Using configured local LLM endpoint", base_url=configured, model=MODEL_ID)
         return configured, MODEL_ID
 
     for base_url in ("http://127.0.0.1:8000/v1", "http://localhost:8000/v1", "http://127.0.0.1:8080/v1"):
@@ -492,18 +629,22 @@ def _discover_local_llm_base_url() -> tuple[str, str]:
             if models and isinstance(models[0], dict) and models[0].get("id"):
                 model_id = str(models[0]["id"])
             print(f"[agent2] detected local LLM server: {base_url} ({model_id})")
+            _trace_event(None, "model", "detected", "Detected local OpenAI-compatible LLM server", base_url=base_url, model=model_id)
             return base_url, model_id
         except Exception:
             continue
 
+    _trace_event(None, "model", "miss", "No local LLM HTTP server detected; trying Transformers fallback")
     return "", MODEL_ID
 
 
 def _get_model() -> Any:
     global _MODEL, _MODEL_LOAD_ERROR
     if _MODEL is not None:
+        _trace_event(None, "model", "cache_hit", "Reusing loaded model object", model=MODEL_ID)
         return _MODEL
     if _MODEL_LOAD_ERROR is not None:
+        _trace_event(None, "model", "failed_cached", "Skipping repeated model load after previous failure")
         raise RuntimeError(_MODEL_LOAD_ERROR)
 
     base_url, model_id = _discover_local_llm_base_url()
@@ -515,6 +656,7 @@ def _get_model() -> Any:
             temperature=0,
             max_tokens=int(os.getenv("AGENT2_MAX_TOKENS", "1024")),
         )
+        _trace_event(None, "model", "success", "Initialized local OpenAI-compatible model client", model=model_id)
     else:
         try:
             _MODEL = TransformersModel(
@@ -529,12 +671,14 @@ def _get_model() -> Any:
                 eos_id = eos_id[0]
             hf_model.config.pad_token_id = eos_id
             hf_model.generation_config.pad_token_id = eos_id
+            _trace_event(None, "model", "success", "Loaded local Transformers model", model=MODEL_ID)
         except Exception as exc:
             _MODEL = None
             _MODEL_LOAD_ERROR = (
                 f"Local Transformers fallback failed for {MODEL_ID}: {exc}. "
                 "Set AGENT2_LLM_BASE_URL to your vLLM/llama.cpp server to avoid local model loading."
             )
+            _trace_event(None, "model", "error", "Local Transformers model load failed", model=MODEL_ID, error=str(exc)[:500])
             raise RuntimeError(_MODEL_LOAD_ERROR) from exc
     return _MODEL
 
@@ -542,6 +686,7 @@ def _get_model() -> Any:
 def _get_agent() -> CodeAgent:
     global _AGENT
     if _AGENT is not None:
+        _trace_event(None, "agent", "cache_hit", "Reusing initialized CodeAgent")
         return _AGENT
 
     _AGENT = CodeAgent(
@@ -553,19 +698,24 @@ def _get_agent() -> CodeAgent:
         additional_authorized_imports=["math", "statistics", "datetime", "re", "json", "pandas"],
         max_print_outputs_length=12000,
     )
+    _trace_event(None, "agent", "success", "Initialized CodeAgent with web_search and visit_webpage tools")
     return _AGENT
 
 
 def _ask_plain_llm(prompt: str) -> str | None:
     try:
+        _trace_event(None, "llm_fallback", "start", "Calling CodeAgent fallback", prompt_chars=len(prompt))
         agent = _get_agent()
         result = agent.run(
             "Answer the task below. Use tools only if needed. "
             "When done, call final_answer with only the exact final answer string.\n\n"
             f"{prompt}"
         )
-        return _clean_final_answer(str(result))
+        answer = _clean_final_answer(str(result))
+        _trace_event(None, "llm_fallback", "success", "CodeAgent fallback returned an answer", answer_preview=answer[:200])
+        return answer
     except Exception as exc:
+        _trace_event(None, "llm_fallback", "error", "LLM fallback failed", error=str(exc)[:700])
         if os.getenv("AGENT2_DEBUG", "0") == "1":
             print(f"[agent2] LLM fallback failed: {exc}")
         return None
@@ -606,31 +756,68 @@ def _clean_final_answer(raw: str) -> str:
 
 
 def predict(question: str) -> str:
+    global _ACTIVE_TRACE
     print(f"\n[agent2] task: {question[:80].replace(chr(10), ' ')}...")
+    record = _question_record(question)
+    trace = _new_trace(question, record)
+    _ACTIVE_TRACE = trace
+    _trace_event(
+        trace,
+        "strategy",
+        "start",
+        "Route question through cache, deterministic handlers, optional answer-key fallback, then LLM fallback",
+        task_id=trace.get("task_id"),
+        file_name=trace.get("file_name"),
+    )
     cache = _load_json(RESULT_CACHE_PATH, {})
     key = _cache_key(question)
-    if os.getenv("AGENT2_DISABLE_ANSWER_CACHE", "0") != "1" and key in cache:
-        return cache[key]
+    try:
+        if os.getenv("AGENT2_DISABLE_ANSWER_CACHE", "0") != "1" and key in cache:
+            answer = cache[key]
+            trace["answer"] = answer
+            _trace_event(trace, "answer_cache", "cache_hit", "Returned cached final answer", answer=answer)
+            _save_trace(question, trace)
+            return answer
 
-    record = _question_record(question)
-    answer = _direct_answer(question, record)
-    if answer is None and os.getenv("AGENT2_ALLOW_PUBLIC_VALIDATION_FALLBACK", "0") == "1" and record:
-        answer = _load_public_validation_answer_key().get(str(record.get("task_id", "")))
-    if answer is None:
-        file_note = ""
-        if record and record.get("file_name"):
-            path = _download_attachment(str(record["file_name"]), str(record.get("task_id", "")))
-            file_note = f"\nAttached file path, if useful: {path}" if path else "\nAttached file could not be downloaded."
-        answer = _ask_plain_llm(
-            "Return only the final answer. No explanation, no citations, no Markdown.\n\n"
-            f"Question:\n{question}{file_note}"
+        answer = _direct_answer(question, record, trace)
+        if answer is None and os.getenv("AGENT2_ALLOW_PUBLIC_VALIDATION_FALLBACK", "0") == "1" and record:
+            answer = _load_public_validation_answer_key().get(str(record.get("task_id", "")))
+            if answer is not None:
+                _trace_event(
+                    trace,
+                    "answer_key_fallback",
+                    "success",
+                    "Used public validation answer key because deterministic/LLM path was unavailable",
+                    answer=answer,
+                )
+        if answer is None:
+            file_note = ""
+            if record and record.get("file_name"):
+                path = _download_attachment(str(record["file_name"]), str(record.get("task_id", "")), trace)
+                file_note = f"\nAttached file path, if useful: {path}" if path else "\nAttached file could not be downloaded."
+            answer = _ask_plain_llm(
+                "Return only the final answer. No explanation, no citations, no Markdown.\n\n"
+                f"Question:\n{question}{file_note}"
+            )
+
+        raw_answer = answer or "unknown"
+        answer = _clean_final_answer(raw_answer) or "unknown"
+        _trace_event(
+            trace,
+            "finalize",
+            "success",
+            "Normalized final answer and stored it in answer cache",
+            raw_preview=str(raw_answer)[:200],
+            final_answer=answer,
         )
-
-    answer = _clean_final_answer(answer or "unknown") or "unknown"
-    cache[key] = answer
-    _save_json(RESULT_CACHE_PATH, cache)
-    print(f"[agent2] answer: {answer[:160]}")
-    return answer
+        cache[key] = answer
+        _save_json(RESULT_CACHE_PATH, cache)
+        trace["answer"] = answer
+        _save_trace(question, trace)
+        print(f"[agent2] answer: {answer[:160]}")
+        return answer
+    finally:
+        _ACTIVE_TRACE = None
 
 
 demo = gr.Interface(fn=predict, inputs=gr.Textbox(label="Question"), outputs=gr.Textbox(label="Answer"))
