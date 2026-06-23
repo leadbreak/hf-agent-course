@@ -1,0 +1,8 @@
+ddgs
+huggingface_hub>=0.31.2
+ipykernel
+jupyter
+nbformat
+openpyxl
+pandas
+requests
